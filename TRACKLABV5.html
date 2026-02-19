@@ -1,0 +1,2073 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Track Lab</title>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/browser-id3-writer@4.4.0/dist/browser-id3-writer.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=B612+Mono:wght@400;700&family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;1,400;1,700&family=Bebas+Neue&family=Oswald:wght@400;600;700&family=Anonymous+Pro:ital,wght@0,400;0,700;1,400&family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&family=IBM+Plex+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Roboto+Condensed:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;}
+body{margin:0;font-family:'Share Tech Mono',monospace;}
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:var(--app-bg);}
+::-webkit-scrollbar-thumb{background:var(--app-border);border-radius:2px;}
+input[type=color]{-webkit-appearance:none;border:none;padding:0;cursor:pointer;width:26px;height:20px;border-radius:2px;background:none;}
+input[type=color]::-webkit-color-swatch-wrapper{padding:0;}
+input[type=color]::-webkit-color-swatch{border:none;border-radius:2px;}
+input[type=range]{-webkit-appearance:none;appearance:none;height:3px;border-radius:2px;background:var(--app-border);outline:none;cursor:pointer;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:var(--app-accent);cursor:pointer;}
+@keyframes tl-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.tl-spin{animation:tl-spin 0.7s linear infinite;display:inline-block;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+// ━━━━━━━━ CLASSIFICATION ━━━━━━━━
+const CLS={
+  digit1:{name:'Primary Genre / Style',options:{
+    '1':'Ambient / Atmospheric','2':'Techno / Industrial','3':'House / Dance','4':'Downtempo / Chillout',
+    '5':'Experimental / Glitch','6':'Synthwave / Retro','7':'Drum & Bass / Breakbeat','8':'Trance / Progressive',
+    '9':'Minimal / Micro','A':'Noise / Power Electronics','B':'Field Recording / Concrete','C':'Jazz / Fusion',
+    'D':'Classical / Orchestral','E':'Folk / Acoustic','F':'Hip-Hop / Rap','G':'Reggae / Dub',
+    'H':'Metal / Hardcore','I':'Pop','J':'Drone / Dark Ambient','K':'Post-Rock / Cinematic',
+    'L':'EBM / Industrial Dance','M':'Krautrock / Motorik','N':'Musique Concrète','O':'Rave / Hardcore Techno',
+    'P':'Psych / Kosmische','Q':'Neo-Classical / Modern','R':'Lo-Fi / Bedroom','S':'Rock',
+    'T':'Punk / Post-Punk','U':'Soul / R&B / Funk','V':'Country / Americana','W':'Blues',
+    'X':'World / Global','Y':'Electronic / Electronica','Z':'Unclassified / Other',
+  }},
+  digit2:{name:'Mood / Energy / Affect',options:{
+    '0':'Dark / Melancholic','1':'Ethereal / Dreamy','2':'Energetic / Driving','3':'Calm / Meditative',
+    '4':'Mysterious / Cinematic','5':'Uplifting / Euphoric','6':'Aggressive / Intense','7':'Nostalgic / Warm',
+    '8':'Cold / Clinical','9':'Playful / Quirky','A':'Brooding / Tense','B':'Hypnotic / Trance-like',
+    'C':'Melancholic / Bittersweet','D':'Chaotic / Dissonant','E':'Serene / Peaceful','F':'Unsettling / Uncanny',
+    'G':'Triumphant / Anthemic','H':'Introspective / Private','I':'Romantic / Sensual','J':'Mechanical / Robotic',
+    'K':'Spiritual / Transcendent','L':'Ironic / Detached','M':'Raw / Visceral','N':'Blissful / Elated',
+    'O':'Desolate / Isolated','P':'Urgent / Pressurised','Q':'Tense / Anxious','R':'Joyful / Celebratory',
+    'S':'Melancholic / Pensive','T':'Confrontational','U':'Defiant / Rebellious','V':'Tender / Vulnerable',
+    'W':'Grotesque / Absurd','X':'Clinical / Detached','Y':'Ecstatic / Frenetic','Z':'Neutral / Affectless',
+  }},
+  digit3:{name:'Tempo / Rhythmic Feel',options:{
+    '0':'0–60 BPM (Glacial)','1':'60–80 BPM (Slow)','2':'80–100 BPM (Moderate)','3':'100–120 BPM (Medium)',
+    '4':'120–130 BPM (Uptempo)','5':'130–140 BPM (Fast)','6':'140–160 BPM (Very Fast)','7':'160–180 BPM (Rapid)',
+    '8':'180+ BPM (Extreme)','9':'Variable / Rubato','A':'No Tempo / Free Time','B':'Half-time Feel',
+    'C':'Double-time Feel','D':'Polyrhythmic / Complex','E':'Swing / Shuffle','F':'Broken / Irregular',
+    'G':'Pulseless / Drone','H':'Stuttered / Chopped','I':'Waltz / 3-4','J':'Odd Meter (5,7,11)',
+    'K':'4/4 Straight','L':'Syncopated','M':'Gallop / Triplet','N':'March / 2-beat',
+    'O':'Samba / Baião','P':'Afrobeat / Afro-Cuban','Q':'Breakbeat / Hip-Hop','R':'Jungle / Ragga',
+    'S':'Footwork / Juke','T':'IDM / Drill n Bass','U':'Trap / 808','V':'Garage / 2-step',
+    'W':'Dubstep / Grime','X':'Industrial / EBM Pulse','Y':'Ambient Pulse / Slow Drift','Z':'No Rhythm / Noise',
+  }},
+  digit4:{name:'Texture / Density / Arrangement',options:{
+    '0':'Sparse / Minimal','1':'Light / Airy','2':'Moderate','3':'Layered','4':'Dense / Full',
+    '5':'Heavy / Thick','6':'Rhythmic Focus','7':'Melodic Focus','8':'Textural / Drone','9':'Complex / Chaotic',
+    'A':'Single Element','B':'Call & Response','C':'Evolving / Morphing','D':'Repetitive / Locked',
+    'E':'Granular / Fragmented','F':'Saturated / Distorted','G':'Acoustic / Natural','H':'Synthetic Only',
+    'I':'Mixed / Hybrid','J':'Collage / Found Sound','K':'Micro-tonal','L':'Silent / Near-Silence',
+    'M':'Noise / Wall','N':'Harmonic / Tonal','O':'Atonal / Dissonant','P':'Arpeggiated / Sequenced',
+    'Q':'Pad-Heavy / Washed','R':'Sample-Based','S':'Vocal-Forward','T':'Bass-Heavy / Sub',
+    'U':'Treble / High Frequency','V':'Mid-Range Focus','W':'Binaural / Spatial','X':'Stereo Field Play',
+    'Y':'Mono / Centered','Z':'Unstructured / Free',
+  }},
+};
+const APP_THEMES={
+  void:    {name:'Void',    bg:'#06060a',panel:'#0b0b10',border:'#141418',text:'#888',accent:'#c8ff00',muted:'#2a2a35',card:'#0f0f16',bright:'#ccc'},
+  ash:     {name:'Ash',     bg:'#111',   panel:'#181818',border:'#252525',text:'#777',accent:'#fff',   muted:'#333',   card:'#1c1c1c',bright:'#bbb'},
+  slate:   {name:'Slate',   bg:'#0d1117',panel:'#161b22',border:'#21262d',text:'#8b949e',accent:'#58a6ff',muted:'#30363d',card:'#1c2128',bright:'#c9d1d9'},
+  sepia:   {name:'Sepia',   bg:'#1a1610',panel:'#201c13',border:'#302c1e',text:'#8a7a5a',accent:'#d4a853',muted:'#3a3020',card:'#252015',bright:'#c8b890'},
+  terminal:{name:'Terminal',bg:'#000d00',panel:'#001200',border:'#002200',text:'#00aa00',accent:'#00ff41',muted:'#003300',card:'#001500',bright:'#00ff00'},
+  chalk:   {name:'Chalk',   bg:'#f0ede8',panel:'#e8e4de',border:'#ccc8c0',text:'#555',  accent:'#111',  muted:'#aaa',   card:'#ddd9d2',bright:'#222'},
+  paper:   {name:'Paper',   bg:'#fafaf7',panel:'#f2f0eb',border:'#dddad2',text:'#666',  accent:'#c0392b',muted:'#bbb',  card:'#eae8e1',bright:'#111'},
+};
+const DEFAULT_APP_THEME={themeKey:'void',brightness:100,borderRadius:0,colorOverrides:false,customBg:'#06060a',customPanel:'#0b0b10',customBorder:'#141418',customText:'#888',customBright:'#cccccc',customAccent:'#c8ff00'};
+const BASE_SCHEMES={
+  blanc: {n:'Blanc', bg:'#ffffff',fg:'#000',bannerBg:'#000',bannerFg:'#fff',metaBg:'#000',metaFg:'#fff',accent:'#000',sub:'#777',border:'#000',strip:'#f0f0f0',codeBg:'#f6f6f6',codeFg:'#000'},
+  void:  {n:'Void',  bg:'#000',fg:'#fff',bannerBg:'#fff',bannerFg:'#000',metaBg:'#fff',metaFg:'#000',accent:'#fff',sub:'#888',border:'#fff',strip:'#111',codeBg:'#111',codeFg:'#fff'},
+  thermal:{n:'Thermal',bg:'#faf8f5',fg:'#1a1614',bannerBg:'#1a1614',bannerFg:'#faf8f5',metaBg:'#1a1614',metaFg:'#faf8f5',accent:'#1a1614',sub:'#666054',border:'#1a1614',strip:'#ede9e4',codeBg:'#ede9e4',codeFg:'#1a1614'},
+  xerox: {n:'Xerox', bg:'#d8d5d0',fg:'#1a1a18',bannerBg:'#1a1a18',bannerFg:'#d8d5d0',metaBg:'#1a1a18',metaFg:'#d8d5d0',accent:'#1a1a18',sub:'#555',border:'#1a1a18',strip:'#c8c5c0',codeBg:'#c8c5c0',codeFg:'#1a1a18'},
+  amber: {n:'Amber', bg:'#fefce8',fg:'#1a1200',bannerBg:'#b45309',bannerFg:'#fff',metaBg:'#1a1200',metaFg:'#fefce8',accent:'#b45309',sub:'#78350f',border:'#1a1200',strip:'#fef3c7',codeBg:'#fff7e0',codeFg:'#92400e'},
+  slate: {n:'Slate', bg:'#f8f9fa',fg:'#1e293b',bannerBg:'#334155',bannerFg:'#fff',metaBg:'#1e293b',metaFg:'#f8f9fa',accent:'#3b5279',sub:'#64748b',border:'#1e293b',strip:'#e2e8f0',codeBg:'#e8edf2',codeFg:'#334155'},
+  acid:  {n:'Acid',  bg:'#fff',fg:'#000',bannerBg:'#00c853',bannerFg:'#000',metaBg:'#000',metaFg:'#00c853',accent:'#00c853',sub:'#444',border:'#000',strip:'#efffef',codeBg:'#efffef',codeFg:'#007a33'},
+  dusk:  {n:'Dusk',  bg:'#1a0a2e',fg:'#e8d8ff',bannerBg:'#4a2070',bannerFg:'#e8d8ff',metaBg:'#3d1a6b',metaFg:'#e8d8ff',accent:'#bf5af2',sub:'#9b72cf',border:'#5e2a8c',strip:'#250d40',codeBg:'#250d40',codeFg:'#bf5af2'},
+  ghost: {n:'Ghost', bg:'#f7f7f5',fg:'#111',bannerBg:'#e0e0de',bannerFg:'#111',metaBg:'#1a1a1a',metaFg:'#f0f0f0',accent:'#777',sub:'#aaa',border:'#111',strip:'#ededed',codeBg:'#eeeeec',codeFg:'#555'},
+  custom:{n:'Custom',bg:'#fff',fg:'#000',bannerBg:'#000',bannerFg:'#fff',metaBg:'#000',metaFg:'#fff',accent:'#000',sub:'#666',border:'#000',strip:'#f2f2f2',codeBg:'#f6f6f6',codeFg:'#000'},
+};
+const FONTS={
+  'share-tech':      {css:'"Share Tech Mono",monospace',    name:'Share Tech Mono — OCR/thermal ★'},
+  'b612':            {css:'"B612 Mono",monospace',          name:'B612 Mono — aerospace'},
+  'ibm-plex':        {css:'"IBM Plex Mono",monospace',      name:'IBM Plex Mono — industrial'},
+  'space-mono':      {css:'"Space Mono",monospace',         name:'Space Mono'},
+  'anonymous':       {css:'"Anonymous Pro",monospace',      name:'Anonymous Pro — terminal'},
+  'courier':         {css:'"Courier Prime",monospace',      name:'Courier Prime — typewriter'},
+  'barlow':          {css:'"Barlow Condensed",sans-serif',  name:'Barlow Condensed — Soviet ★'},
+  'roboto-condensed':{css:'"Roboto Condensed",sans-serif',  name:'Roboto Condensed'},
+  'oswald':          {css:'Oswald,sans-serif',              name:'Oswald — condensed'},
+  'bebas':           {css:'"Bebas Neue",cursive',           name:'Bebas Neue — ultra-condensed'},
+};
+const SIZE_PRESETS=[{name:'4×6 Standard',w:384,h:576},{name:'4×4 Square',w:384,h:384},{name:'6×4 Landscape',w:576,h:384},{name:'3×5 Small',w:288,h:480},{name:'3×3 Mini',w:288,h:288},{name:'5×7 Large',w:480,h:672}];
+const mkUid=()=>Math.random().toString(36).slice(2,10);
+const DEFAULT_META_ROW=[{id:'bpm',label:'BPM',value:'',show:true},{id:'key',label:'Key',value:'',show:true},{id:'genre',label:'Genre',value:'',show:true},{id:'dur',label:'Length',value:'',show:true},{id:'date',label:'Date',value:'',show:true}];
+const DEFAULT_SETTINGS={
+  scheme:'thermal',customColors:{bg:'#fff',fg:'#000',bannerBg:'#000',bannerFg:'#fff',metaBg:'#000',metaFg:'#fff',accent:'#000',sub:'#666',border:'#000',strip:'#f2f2f2',codeBg:'#f6f6f6',codeFg:'#000'},
+  bgAlpha:1,fgAlpha:1,useGradient:false,gradColor2:'#ccc',gradDir:'to bottom',
+  font:'share-tech',artistSize:15,artistBold:true,artistItalic:false,
+  titleSize:24,titleBold:true,titleItalic:false,titleAlign:'left',
+  metaSize:10,metaLabelSize:6,metaLabelColor:'',bodySize:11,bodyBold:false,bodyItalic:false,bodyAlign:'left',tagSize:9,
+  labelW:384,labelH:576,outerBorder:3,
+  borders:{bannerBottom:true,titleBottom:true,metaBottom:true,classBottom:true,descBottom:true,qrDivider:true,bottomBorder:true,footerTop:true,metaCellDividers:true},
+  showBanner:true,showMeta:true,showClass:true,showDesc:true,showQR:true,showTags:true,showFooter:true,showImage:false,showCodes:true,codesInFooter:false,
+  qrFloat:false,qrFloatX:8,qrFloatY:8,qrFloatSize:84,metaFields:DEFAULT_META_ROW,
+  qrCaption:'SCAN',qrMode:'static',dynamicId:mkUid().toUpperCase().slice(0,8),
+  imageData:null,imageOriginalData:null,imageW:180,imageH:120,imageX:8,imageY:0,ditherThreshold:128,ditherContrast:0,
+  textBlocks:[],exportScale:2,exportFormat:'png',
+};
+const DEFAULT_FIELDS={artist:'',catalog:'',trackNum:'01',title:'',description:'',tags:'',url:'',classCode:'',classDesc:'',isrc:'',upc:''};
+const DEFAULT_METADATA={
+  title:'',artist:'',albumArtist:'',album:'',year:'',trackNum:'',trackTotal:'',discNum:'',discTotal:'',
+  genre:'',bpm:'',key:'',composer:'',lyricist:'',producer:'',publisher:'',copyright:'',label:'',catalog:'',
+  isrc:'',upc:'',iswc:'',language:'',comment:'',mood:'',grouping:'',encoder:'',
+  explicit:false,compilation:false,albumArt:null,albumArtSize:'3000',
+};
+const ALBUM_ART_SIZES=[
+  {val:'3000',label:'3000×3000 — Streaming standard'},
+  {val:'1500',label:'1500×1500 — Apple Music min'},
+  {val:'1400',label:'1400×1400 — Bandcamp min'},
+  {val:'1000',label:'1000×1000 — General web'},
+  {val:'500', label:'500×500 — Thumbnail'},
+  {val:'300', label:'300×300 — Physical CD'},
+];
+const STATUS_OPT={draft:{label:'Draft',color:'#888'},complete:{label:'Complete',color:'#58a6ff'},released:{label:'Released',color:'#3fb950'},archived:{label:'Archived',color:'#8b949e'}};
+// ━━━━━━━━ HELPERS ━━━━━━━━
+const todayStr=()=>{const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
+const shortUrl=u=>{try{const p=new URL(u);return p.hostname+(p.pathname!=='/'?p.pathname.slice(0,22):'');}catch{return u.slice(0,28);}};
+const getCodeDesc=code=>{const d=code.replace('.','').toUpperCase().split('');if(d.length<4)return'';return[CLS.digit1.options[d[0]],CLS.digit2.options[d[1]],CLS.digit3.options[d[2]],CLS.digit4.options[d[3]]].filter(Boolean).join(' • ');};
+const rgba=(hex,alpha=1)=>{if(!hex||hex==='transparent')return'transparent';const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return`rgba(${r},${g},${b},${alpha})`;};
+const loadLS=(k,d)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch{return d;}};
+const saveLS=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch{}};
+const getColors=s=>{const base=s.scheme==='custom'?s.customColors:(BASE_SCHEMES[s.scheme]||BASE_SCHEMES.blanc);return{...base,_bgAlpha:s.bgAlpha??1,_fgAlpha:s.fgAlpha??1};};
+const getAppTheme=at=>{
+  const base=at.themeKey==='custom'
+    ?{bg:at.customBg,panel:at.customPanel,border:at.customBorder,text:at.customText,accent:at.customAccent,muted:at.customBorder,card:at.customPanel,bright:at.customBright||at.customText}
+    :(APP_THEMES[at.themeKey]||APP_THEMES.void);
+  const merged={...base,r:at.borderRadius||0};
+  if(at.colorOverrides&&at.themeKey!=='custom'){
+    if(at.customAccent) merged.accent=at.customAccent;
+    if(at.customText)   merged.text=at.customText;
+    if(at.customBright) merged.bright=at.customBright;
+  }
+  return merged;
+};
+const isrcValid=v=>/^[A-Z]{2}-[A-Z0-9]{3}-\d{2}-\d{5}$/.test(v);
+const upcValid=v=>/^\d{12,13}$/.test(v.replace(/[\s-]/g,''));
+const fmtBytes=b=>b>1048576?`${(b/1048576).toFixed(1)} MB`:b>1024?`${(b/1024).toFixed(0)} KB`:`${b} B`;
+
+// ━━━━━━━━ INDEXEDDB ━━━━━━━━
+const IDB={
+  _db:null,
+  open(){return new Promise((res,rej)=>{if(this._db)return res(this._db);const req=indexedDB.open('tracklab',1);req.onupgradeneeded=e=>{e.target.result.createObjectStore('blobs');};req.onsuccess=e=>{this._db=e.target.result;res(this._db);};req.onerror=()=>rej(req.error);});},
+  async set(k,v){const db=await this.open();return new Promise((res,rej)=>{const tx=db.transaction('blobs','readwrite');tx.objectStore('blobs').put(v,k);tx.oncomplete=res;tx.onerror=()=>rej(tx.error);});},
+  async get(k){const db=await this.open();return new Promise((res,rej)=>{const req=db.transaction('blobs','readonly').objectStore('blobs').get(k);req.onsuccess=()=>res(req.result);req.onerror=()=>rej(req.error);});},
+  async del(k){const db=await this.open();return new Promise((res,rej)=>{const tx=db.transaction('blobs','readwrite');tx.objectStore('blobs').delete(k);tx.oncomplete=res;tx.onerror=()=>rej(tx.error);});},
+};
+
+// ━━━━━━━━ DITHERING ━━━━━━━━
+function atkinsonDither(imgEl,tw,th,threshold=128,contrast=0){
+  const c=document.createElement('canvas');c.width=tw;c.height=th;
+  const ctx=c.getContext('2d');ctx.filter=`contrast(${100+contrast}%)`;ctx.drawImage(imgEl,0,0,tw,th);
+  const id=ctx.getImageData(0,0,tw,th),d=id.data,w=tw,h=th,g=new Float32Array(w*h);
+  for(let i=0;i<w*h;i++){const p=i*4;g[i]=0.299*d[p]+0.587*d[p+1]+0.114*d[p+2];}
+  for(let y=0;y<h;y++){for(let x=0;x<w;x++){const i=y*w+x,old=Math.max(0,Math.min(255,g[i])),nw=old<threshold?0:255;g[i]=nw;const err=(old-nw)/8;[[x+1,y],[x+2,y],[x-1,y+1],[x,y+1],[x+1,y+1],[x,y+2]].forEach(([nx,ny])=>{if(nx>=0&&nx<w&&ny>=0&&ny<h)g[ny*w+nx]+=err;});}}
+  for(let i=0;i<w*h;i++){const p=i*4;const v=Math.round(g[i]);d[p]=d[p+1]=d[p+2]=v;d[p+3]=255;}
+  ctx.putImageData(id,0,0);return c.toDataURL('image/png');
+}
+
+// ━━━━━━━━ QR BLOCK ━━━━━━━━
+function QRBlock({url,colors,size}){
+  const ref=useRef();
+  useEffect(()=>{
+    if(!ref.current)return;ref.current.innerHTML='';
+    const t=url&&url.trim()?url.trim():'https://example.com';
+    try{new QRCode(ref.current,{text:t,width:size,height:size,colorDark:colors.fg,colorLight:colors.bg,correctLevel:QRCode.CorrectLevel.M});}catch(e){}
+  },[url,colors.fg,colors.bg,size]);
+  return <div ref={ref} style={{width:size,height:size,display:'flex',alignItems:'center',justifyContent:'center'}}/>;
+}
+// ━━━━━━━━ TRACK LABEL COMPONENT ━━━━━━━━
+const TrackLabel=React.forwardRef(function TrackLabel({fields,settings},ref){
+  const sc=getColors(settings),ff=FONTS[settings.font]?.css||FONTS['share-tech'].css;
+  const bw=settings.outerBorder||0,W=settings.labelW,H=settings.labelH,bd=settings.borders||{};
+  const ibw=Math.max(1,Math.round(bw*0.6));
+  const bl=()=>`${ibw}px solid ${rgba(sc.border)}`;
+  const metaVals=settings.metaFields?.filter(f=>f.show)||[];
+  const qrSize=Math.min(84,Math.round(W*0.2));
+  const qrUrl=settings.qrMode==='dynamic'?`https://go.tracklab.io/${settings.dynamicId}`:(fields.url||'');
+  let bg={background:rgba(sc.bg,sc._bgAlpha)};
+  if(settings.useGradient)bg={background:`linear-gradient(${settings.gradDir||'to bottom'},${rgba(sc.bg,sc._bgAlpha)},${rgba(settings.gradColor2,sc._bgAlpha)})`};
+  return(
+    <div ref={ref} style={{width:W,height:H,display:'flex',flexDirection:'column',fontFamily:ff,position:'relative',overflow:'hidden',flexShrink:0,border:bw>0?`${bw}px solid ${rgba(sc.border)}`:'none',...bg}}>
+      {settings.showBanner&&(
+        <div style={{background:rgba(sc.bannerBg,sc._bgAlpha),color:rgba(sc.bannerFg,sc._fgAlpha),display:'flex',alignItems:'center',justifyContent:'space-between',padding:'5px 10px',flexShrink:0,minHeight:36,borderBottom:bd.bannerBottom?bl():'none'}}>
+          <div style={{fontSize:settings.artistSize||15,fontWeight:settings.artistBold?800:400,fontStyle:settings.artistItalic?'italic':'normal',letterSpacing:'0.05em',lineHeight:1,textTransform:'none'}}>{fields.artist||'ARTIST'}</div>
+          <div style={{fontSize:9,letterSpacing:'0.15em',opacity:0.75,fontFamily:ff,textTransform:'none'}}>{fields.catalog}</div>
+        </div>
+      )}
+      <div style={{padding:'7px 10px 5px',flexShrink:0,position:'relative',borderBottom:bd.titleBottom?bl():'none',...bg}}>
+        <div style={{fontSize:7,letterSpacing:'0.25em',textTransform:'uppercase',color:rgba(sc.sub,sc._fgAlpha),marginBottom:2,fontFamily:ff}}>Track</div>
+        <div style={{fontSize:settings.titleSize,fontWeight:settings.titleBold?800:400,fontStyle:settings.titleItalic?'italic':'normal',textAlign:settings.titleAlign||'left',lineHeight:1.0,letterSpacing:'0.02em',textTransform:'none',color:rgba(sc.fg,sc._fgAlpha),wordBreak:'break-word',paddingRight:42,fontFamily:ff}}>{fields.title||'UNTITLED'}</div>
+        <div style={{position:'absolute',right:10,top:8,fontSize:Math.round(settings.titleSize*0.8),fontWeight:700,color:rgba(sc.accent,0.22),lineHeight:1,fontFamily:ff}}>{fields.trackNum}</div>
+      </div>
+      {settings.showMeta&&metaVals.length>0&&(
+        <div style={{display:'flex',background:rgba(sc.metaBg,sc._bgAlpha),borderBottom:bd.metaBottom?bl():'none',flexShrink:0,minHeight:32}}>
+          {metaVals.map((mf,i)=>(
+            <div key={mf.id} style={{flex:1,display:'flex',flexDirection:'column',justifyContent:'center',padding:'0 7px',borderRight:bd.metaCellDividers&&i<metaVals.length-1?`1px solid ${rgba(sc.metaFg,0.12)}`:'none'}}>
+              <div style={{fontSize:settings.metaLabelSize||6,letterSpacing:'0.22em',textTransform:'uppercase',opacity:settings.metaLabelColor?1:0.45,color:settings.metaLabelColor?rgba(settings.metaLabelColor,sc._fgAlpha):rgba(sc.metaFg,sc._fgAlpha),marginBottom:1,fontFamily:ff}}>{mf.label}</div>
+              <div style={{fontSize:settings.metaSize,fontWeight:700,color:rgba(sc.metaFg,sc._fgAlpha),lineHeight:1,fontFamily:ff}}>{mf.value||'—'}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {settings.showClass&&fields.classCode&&(
+        <div style={{background:rgba(sc.codeBg,sc._bgAlpha),padding:'5px 10px',borderBottom:bd.classBottom?bl():'none',flexShrink:0,display:'flex',alignItems:'baseline',gap:8}}>
+          <div style={{fontSize:17,fontWeight:700,color:rgba(sc.codeFg,sc._fgAlpha),letterSpacing:'0.12em',flexShrink:0,fontFamily:ff}}>{fields.classCode}</div>
+          <div style={{fontSize:8,color:rgba(sc.sub,sc._fgAlpha),letterSpacing:'0.04em',lineHeight:1.3,flex:1,overflow:'hidden',fontFamily:ff}}>{fields.classDesc||getCodeDesc(fields.classCode)}</div>
+        </div>
+      )}
+      {settings.showDesc&&(
+        <div style={{padding:'6px 10px',borderBottom:bd.descBottom?bl():'none',flexShrink:0,...bg}}>
+          <div style={{fontSize:7,letterSpacing:'0.22em',textTransform:'uppercase',color:rgba(sc.sub,sc._fgAlpha),marginBottom:3,fontFamily:ff}}>Notes</div>
+          <div style={{fontSize:settings.bodySize,fontWeight:settings.bodyBold?700:400,fontStyle:settings.bodyItalic?'italic':'normal',textAlign:settings.bodyAlign||'left',lineHeight:1.45,color:rgba(sc.fg,sc._fgAlpha),overflow:'hidden',maxHeight:Math.round(settings.bodySize*1.45*3),fontFamily:ff}}>{fields.description}</div>
+        </div>
+      )}
+      {settings.showCodes&&(fields.isrc||fields.upc)&&(
+        <div style={{padding:'4px 10px',borderBottom:bd.descBottom?bl():'none',flexShrink:0,...bg,display:'flex',gap:16,alignItems:'center'}}>
+          {fields.isrc&&<div style={{display:'flex',gap:5,alignItems:'baseline'}}><span style={{fontSize:6,letterSpacing:'0.2em',textTransform:'uppercase',color:rgba(sc.sub,sc._fgAlpha*0.7),fontFamily:ff}}>ISRC</span><span style={{fontSize:8,fontWeight:700,color:rgba(sc.fg,sc._fgAlpha),letterSpacing:'0.12em',fontFamily:ff}}>{fields.isrc}</span></div>}
+          {fields.upc&&<div style={{display:'flex',gap:5,alignItems:'baseline'}}><span style={{fontSize:6,letterSpacing:'0.2em',textTransform:'uppercase',color:rgba(sc.sub,sc._fgAlpha*0.7),fontFamily:ff}}>UPC</span><span style={{fontSize:8,fontWeight:700,color:rgba(sc.fg,sc._fgAlpha),letterSpacing:'0.12em',fontFamily:ff}}>{fields.upc}</span></div>}
+        </div>
+      )}
+      <div style={{flex:1,display:'flex',overflow:'hidden',minHeight:0,borderBottom:bd.bottomBorder?bl():'none',...bg}}>
+        {settings.showQR&&!settings.qrFloat&&(
+          <div style={{width:Math.round(W*0.3),flexShrink:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:4,borderRight:bd.qrDivider?bl():'none',padding:'6px 8px'}}>
+            <QRBlock url={qrUrl} colors={sc} size={qrSize}/>
+            <div style={{fontSize:7,letterSpacing:'0.12em',textTransform:'uppercase',color:rgba(sc.sub,sc._fgAlpha),textAlign:'center',fontFamily:ff}}>{settings.qrCaption||'SCAN'}</div>
+          </div>
+        )}
+        <div style={{flex:1,padding:'8px 9px',display:'flex',flexDirection:'column',gap:5,overflow:'hidden'}}>
+          {settings.showTags&&(
+            <><div style={{fontSize:7,letterSpacing:'0.22em',textTransform:'uppercase',color:rgba(sc.sub,sc._fgAlpha),fontFamily:ff}}>Tags</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:3}}>{(fields.tags||'').split(',').map(t=>t.trim()).filter(Boolean).map((t,i)=>(
+              <div key={i} style={{background:rgba(sc.strip,sc._bgAlpha),color:rgba(sc.accent,sc._fgAlpha),fontSize:settings.tagSize,fontWeight:700,letterSpacing:'0.06em',padding:'2px 5px',border:`1px solid ${rgba(sc.border)}`,textTransform:'uppercase',fontFamily:ff}}>{t}</div>
+            ))}</div></>
+          )}
+          <div style={{marginTop:'auto',fontSize:8,color:rgba(sc.sub,sc._fgAlpha*0.7),wordBreak:'break-all',lineHeight:1.4,fontFamily:ff}}>{fields.url?shortUrl(fields.url):''}</div>
+        </div>
+      </div>
+      {settings.showQR&&settings.qrFloat&&(
+        <div style={{position:'absolute',left:settings.qrFloatX,top:settings.qrFloatY,display:'flex',flexDirection:'column',alignItems:'center',gap:3,zIndex:15,pointerEvents:'none'}}>
+          <QRBlock url={qrUrl} colors={sc} size={settings.qrFloatSize||84}/>
+          {settings.qrCaption&&<div style={{fontSize:7,letterSpacing:'0.12em',textTransform:'uppercase',color:rgba(sc.sub,sc._fgAlpha),textAlign:'center',fontFamily:ff}}>{settings.qrCaption}</div>}
+        </div>
+      )}
+      {settings.showFooter&&(
+        <div style={{height:22,background:rgba(sc.strip,sc._bgAlpha),display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 9px',flexShrink:0,borderTop:bd.footerTop?bl():'none'}}>
+          <div style={{fontSize:7,letterSpacing:'0.08em',color:rgba(sc.sub,sc._fgAlpha),fontFamily:ff,textTransform:'none'}}>{[fields.artist,fields.catalog].filter(Boolean).join(' · ')}</div>
+          <div style={{fontSize:7,letterSpacing:'0.08em',color:rgba(sc.sub,sc._fgAlpha),fontFamily:ff,display:'flex',gap:8}}>
+            {settings.codesInFooter&&(fields.isrc||fields.upc)?(
+              <>{fields.isrc&&<span><span style={{opacity:0.55,fontSize:6}}>ISRC </span>{fields.isrc}</span>}{fields.upc&&<span><span style={{opacity:0.55,fontSize:6}}>UPC </span>{fields.upc}</span>}</>
+            ):(settings.metaFields?.filter(f=>f.show).slice(0,2)||[]).map(f=>f.value).filter(Boolean).join(' · ')}
+          </div>
+        </div>
+      )}
+      {settings.showImage&&settings.imageData&&(
+        <div style={{position:'absolute',left:settings.imageX,top:settings.imageY,width:settings.imageW,height:settings.imageH,pointerEvents:'none',zIndex:10}}>
+          <img src={settings.imageData} style={{width:'100%',height:'100%',objectFit:'contain',display:'block',imageRendering:'pixelated'}} alt=""/>
+        </div>
+      )}
+      {(settings.textBlocks||[]).map(tb=>(
+        <div key={tb.id} style={{position:'absolute',left:tb.x,top:tb.y,zIndex:20,fontSize:tb.size||12,fontWeight:tb.bold?700:400,fontStyle:tb.italic?'italic':'normal',textAlign:tb.align||'left',color:rgba(tb.color||sc.fg,tb.opacity??1),fontFamily:FONTS[tb.font||settings.font]?.css||ff,letterSpacing:'0.05em',lineHeight:1.3,width:tb.w||'auto',whiteSpace:tb.wrap?'pre-wrap':'nowrap',textTransform:tb.caps?'uppercase':'none'}}>{tb.text}</div>
+      ))}
+    </div>
+  );
+});
+// ━━━━━━━━ UI PRIMITIVES — ALL DEFINED OUTSIDE APP TO PREVENT REMOUNT BUG ━━━━━━━━
+const mkIS=T=>({width:'100%',background:T.bg,border:`1px solid ${T.border}`,color:T.bright,fontFamily:'inherit',fontSize:12,padding:'5px 8px',outline:'none',marginBottom:0,borderRadius:T.r||0});
+const mkLBL=T=>({display:'block',fontSize:8,letterSpacing:'0.18em',textTransform:'uppercase',color:T.muted,marginBottom:3,fontFamily:'inherit'});
+const mkCard=T=>({background:T.card,border:`1px solid ${T.border}`,padding:16,marginBottom:12,borderRadius:(T.r||0)*1.5});
+const mkBtn=(T,primary=false)=>({padding:'8px 16px',background:primary?T.accent:T.panel,color:primary?T.bg:T.text,border:`1px solid ${primary?T.accent:T.border}`,fontFamily:'inherit',fontSize:10,letterSpacing:'0.12em',textTransform:'uppercase',cursor:'pointer',fontWeight:primary?700:400,borderRadius:T.r||0});
+const btnMini={background:'none',border:'none',color:'#555',fontSize:11,cursor:'pointer',padding:'0 3px',flexShrink:0};
+
+function TInp({T,style,...p}){return<input {...p} style={{...mkIS(T),...style}}/>;}
+function TSel({T,style,children,...p}){return<select {...p} style={{...mkIS(T),...style}}>{children}</select>;}
+function TTxt({T,style,...p}){return<textarea {...p} style={{...mkIS(T),resize:'vertical',minHeight:56,lineHeight:1.45,...style}}/>;}
+function Row2({children}){return<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>{children}</div>;}
+function F({T,label,children,mt=0}){return<div style={{marginBottom:7,marginTop:mt}}>{label&&<label style={mkLBL(T)}>{label}</label>}{children}</div>;}
+
+// MF: metadata field wrapper — receives T as prop, never defined inside App
+function MF({T,label,hint,children}){
+  return(
+    <div style={{marginBottom:10}}>
+      {label&&<label style={mkLBL(T)}>{label}</label>}
+      {children}
+      {hint&&<div style={{fontSize:8,color:T.muted,marginTop:3,lineHeight:1.5,letterSpacing:'0.03em'}}>{hint}</div>}
+    </div>
+  );
+}
+
+function Accordion({T,title,children,defaultOpen=false}){
+  const [open,setOpen]=useState(defaultOpen);
+  return(
+    <div style={{borderBottom:`1px solid ${T.border}`}}>
+      <div onClick={()=>setOpen(o=>!o)} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'9px 0',cursor:'pointer',userSelect:'none'}}>
+        <span style={{fontSize:9,letterSpacing:'0.2em',textTransform:'uppercase',color:T.muted}}>{title}</span>
+        <span style={{fontSize:10,color:T.muted,transform:open?'rotate(180deg)':'none',transition:'transform 0.15s'}}>▾</span>
+      </div>
+      {open&&<div style={{paddingBottom:12}}>{children}</div>}
+    </div>
+  );
+}
+
+function Tog({T,label,value,onChange}){
+  return(
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6,cursor:'pointer'}} onClick={()=>onChange(!value)}>
+      <span style={{fontSize:10,color:value?T.text:T.muted,letterSpacing:'0.06em'}}>{label}</span>
+      <div style={{width:28,height:14,background:value?T.accent:T.bg,borderRadius:7,position:'relative',flexShrink:0,border:`1px solid ${T.border}`,transition:'background 0.12s'}}>
+        <div style={{position:'absolute',top:2,left:value?14:2,width:8,height:8,borderRadius:'50%',background:value?T.bg:T.muted,transition:'left 0.12s'}}/>
+      </div>
+    </div>
+  );
+}
+
+function ColorRow({T,label,hex,alpha,onHex,onAlpha,showAlpha=false}){
+  const eye=async cb=>{if('EyeDropper' in window){try{const r=await(new EyeDropper()).open();cb(r.sRGBHex);}catch{}}else alert('EyeDropper: Chrome only');};
+  return(
+    <div style={{marginBottom:8}}>
+      {label&&<label style={mkLBL(T)}>{label}</label>}
+      <div style={{display:'flex',alignItems:'center',gap:5}}>
+        <input type="color" value={hex||'#000000'} onChange={e=>onHex(e.target.value)} style={{width:26,height:20,padding:0,border:`1px solid ${T.border}`,borderRadius:2,cursor:'pointer',flexShrink:0}}/>
+        <TInp T={T} value={hex||'#000000'} onChange={e=>onHex(e.target.value)} style={{flex:1,fontSize:11,padding:'3px 6px'}}/>
+        {'EyeDropper' in window&&<button onClick={()=>eye(onHex)} style={{background:T.bg,border:`1px solid ${T.border}`,color:T.muted,fontSize:11,padding:'2px 6px',cursor:'pointer',flexShrink:0}}>✦</button>}
+        {showAlpha&&<><input type="range" min={0} max={1} step={0.01} value={alpha??1} onChange={e=>onAlpha(+e.target.value)} style={{width:48}}/><span style={{fontSize:9,color:T.muted,width:26,textAlign:'right'}}>{Math.round((alpha??1)*100)}%</span></>}
+      </div>
+    </div>
+  );
+}
+
+// ━━━━━━━━ PANEL COMPONENTS (outside App) ━━━━━━━━
+function MetaFieldsPanel({T,settings,setS}){
+  const mfs=settings.metaFields||[];
+  const upd=(idx,k,v)=>setS(s=>({...s,metaFields:mfs.map((f,i)=>i===idx?{...f,[k]:v}:f)}));
+  const add=()=>setS(s=>({...s,metaFields:[...mfs,{id:mkUid(),label:'FIELD',value:'',show:true}]}));
+  const del=idx=>setS(s=>({...s,metaFields:mfs.filter((_,i)=>i!==idx)}));
+  const mv=(idx,dir)=>{const a=[...mfs];const to=idx+dir;if(to<0||to>=a.length)return;[a[idx],a[to]]=[a[to],a[idx]];setS(s=>({...s,metaFields:a}));};
+  return(
+    <div>
+      <Tog T={T} label="Show meta row" value={settings.showMeta} onChange={v=>setS(s=>({...s,showMeta:v}))}/>
+      {mfs.map((f,i)=>(
+        <div key={f.id||i} style={{display:'flex',alignItems:'center',gap:4,marginBottom:5,padding:'4px 6px',background:T.bg,border:`1px solid ${T.border}`,borderRadius:T.r||0}}>
+          <Tog T={T} label="" value={f.show} onChange={v=>upd(i,'show',v)}/>
+          <TInp T={T} value={f.label} onChange={e=>upd(i,'label',e.target.value)} style={{width:52,fontSize:10,padding:'3px 5px',flex:'0 0 52px'}}/>
+          <TInp T={T} value={f.value} onChange={e=>upd(i,'value',e.target.value)} style={{flex:1,fontSize:10,padding:'3px 5px'}}/>
+          <button onClick={()=>mv(i,-1)} style={btnMini}>↑</button><button onClick={()=>mv(i,1)} style={btnMini}>↓</button>
+          <button onClick={()=>del(i)} style={{...btnMini,color:'#f87171'}}>✕</button>
+        </div>
+      ))}
+      <button onClick={add} style={{...mkBtn(T),width:'100%',marginTop:4,fontSize:9}}>+ Add Field</button>
+    </div>
+  );
+}
+
+function TextBlocksPanel({T,settings,setS}){
+  const blocks=settings.textBlocks||[];
+  const add=()=>setS(s=>({...s,textBlocks:[...blocks,{id:mkUid(),text:'TYPE HERE',x:12,y:200,size:14,bold:false,italic:false,align:'left',color:'#000000',opacity:1,font:settings.font,wrap:false,caps:false,w:200}]}));
+  const upd=(id,k,v)=>setS(s=>({...s,textBlocks:blocks.map(b=>b.id===id?{...b,[k]:v}:b)}));
+  const del=id=>setS(s=>({...s,textBlocks:blocks.filter(b=>b.id!==id)}));
+  return(
+    <div>
+      <button onClick={add} style={{...mkBtn(T),width:'100%',marginBottom:8,fontSize:9}}>+ Add Text Block</button>
+      {blocks.map((b,i)=>(
+        <div key={b.id} style={{border:`1px solid ${T.border}`,marginBottom:8,padding:8,borderRadius:T.r||0}}>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+            <span style={{fontSize:9,color:T.muted}}>BLOCK {i+1}</span>
+            <button onClick={()=>del(b.id)} style={{...btnMini,color:'#f87171'}}>✕</button>
+          </div>
+          <F T={T} label="Text"><TTxt T={T} value={b.text} onChange={e=>upd(b.id,'text',e.target.value)} style={{minHeight:40}}/></F>
+          <Row2><F T={T} label="X px"><TInp T={T} type="number" value={b.x} onChange={e=>upd(b.id,'x',+e.target.value)}/></F><F T={T} label="Y px"><TInp T={T} type="number" value={b.y} onChange={e=>upd(b.id,'y',+e.target.value)}/></F></Row2>
+          <Row2><F T={T} label="Font Size"><TInp T={T} type="number" min={8} max={72} value={b.size} onChange={e=>upd(b.id,'size',+e.target.value)}/></F><F T={T} label="Width"><TInp T={T} type="number" min={20} value={b.w||200} onChange={e=>upd(b.id,'w',+e.target.value)}/></F></Row2>
+          <F T={T} label="Font"><TSel T={T} value={b.font||settings.font} onChange={e=>upd(b.id,'font',e.target.value)}>{Object.entries(FONTS).map(([k,f])=><option key={k} value={k}>{f.name}</option>)}</TSel></F>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:4}}>
+            <div style={{display:'flex',alignItems:'center',gap:4}}><label style={{...mkLBL(T),marginBottom:0}}>Color</label><input type="color" value={b.color||'#000000'} onChange={e=>upd(b.id,'color',e.target.value)} style={{width:24,height:18,border:`1px solid ${T.border}`,padding:0,cursor:'pointer',borderRadius:2}}/></div>
+            <F T={T} label="Align"><TSel T={T} value={b.align||'left'} onChange={e=>upd(b.id,'align',e.target.value)} style={{padding:'3px 5px'}}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></TSel></F>
+          </div>
+          <div style={{display:'flex',gap:10,flexWrap:'wrap'}}><Tog T={T} label="Bold" value={b.bold} onChange={v=>upd(b.id,'bold',v)}/><Tog T={T} label="Italic" value={b.italic} onChange={v=>upd(b.id,'italic',v)}/><Tog T={T} label="Caps" value={b.caps} onChange={v=>upd(b.id,'caps',v)}/><Tog T={T} label="Wrap" value={b.wrap} onChange={v=>upd(b.id,'wrap',v)}/></div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DitherPanel({T,settings,setS}){
+  const fileRef=useRef();
+  const redither=useCallback(()=>{
+    if(!settings.imageOriginalData)return;
+    const img=new Image();img.onload=()=>{const d=atkinsonDither(img,settings.imageW,settings.imageH,settings.ditherThreshold,settings.ditherContrast);setS(s=>({...s,imageData:d}));};img.src=settings.imageOriginalData;
+  },[settings.imageOriginalData,settings.imageW,settings.imageH,settings.ditherThreshold,settings.ditherContrast]);
+  const load=file=>{
+    if(!file||!file.type.startsWith('image/'))return;
+    const r=new FileReader();r.onload=e=>{setS(s=>({...s,imageOriginalData:e.target.result,showImage:true}));const img=new Image();img.onload=()=>{const w=settings.imageW,h=Math.round(w/(img.width/img.height));setS(s=>({...s,imageH:h}));setS(s=>({...s,imageData:atkinsonDither(img,w,h,settings.ditherThreshold,settings.ditherContrast)}));};img.src=e.target.result;};r.readAsDataURL(file);
+  };
+  return(
+    <div>
+      <Tog T={T} label="Show image on label" value={settings.showImage} onChange={v=>setS(s=>({...s,showImage:v}))}/>
+      <input ref={fileRef} type="file" accept="image/*" style={{display:'none'}} onChange={e=>load(e.target.files[0])}/>
+      <div style={{display:'flex',gap:6,marginBottom:8}}>
+        <button onClick={()=>fileRef.current.click()} style={{...mkBtn(T),flex:1,fontSize:9}}>{settings.imageOriginalData?'↺ Replace':'+ Import Image'}</button>
+        {settings.imageOriginalData&&<button onClick={redither} style={{...mkBtn(T),fontSize:9}}>Re-dither</button>}
+      </div>
+      {settings.imageOriginalData&&(
+        <><F T={T} label={`Threshold: ${settings.ditherThreshold}`}><input type="range" min={50} max={220} value={settings.ditherThreshold} onChange={e=>setS(s=>({...s,ditherThreshold:+e.target.value}))} onMouseUp={redither} style={{width:'100%'}}/></F>
+        <F T={T} label={`Contrast: ${settings.ditherContrast}`}><input type="range" min={-50} max={150} value={settings.ditherContrast} onChange={e=>setS(s=>({...s,ditherContrast:+e.target.value}))} onMouseUp={redither} style={{width:'100%'}}/></F>
+        <Row2><F T={T} label="W px"><TInp T={T} type="number" min={40} value={settings.imageW} onChange={e=>setS(s=>({...s,imageW:+e.target.value}))}/></F><F T={T} label="H px"><TInp T={T} type="number" min={40} value={settings.imageH} onChange={e=>setS(s=>({...s,imageH:+e.target.value}))}/></F></Row2>
+        <Row2><F T={T} label="X px"><TInp T={T} type="number" value={settings.imageX} onChange={e=>setS(s=>({...s,imageX:+e.target.value}))}/></F><F T={T} label="Y px"><TInp T={T} type="number" value={settings.imageY} onChange={e=>setS(s=>({...s,imageY:+e.target.value}))}/></F></Row2></>
+      )}
+    </div>
+  );
+}
+
+function PresetPanel({T,settings,presets,lastId,onLoad,onSave,onDelete}){
+  const [name,setName]=useState('');
+  return(
+    <div>
+      <div style={{display:'flex',gap:6,marginBottom:10}}>
+        <TInp T={T} placeholder="Preset name…" value={name} onChange={e=>setName(e.target.value)} style={{flex:1}}/>
+        <button onClick={()=>{if(name.trim()){onSave(name.trim());setName('');}}} style={mkBtn(T,true)}>Save</button>
+      </div>
+      {presets.length===0&&<div style={{fontSize:10,color:T.muted,textAlign:'center',padding:'12px 0'}}>No presets yet</div>}
+      {presets.map(p=>(
+        <div key={p.id} style={{display:'flex',alignItems:'center',gap:5,marginBottom:5,padding:'6px 8px',background:T.bg,border:`1px solid ${p.id===lastId?T.accent:T.border}`,borderRadius:T.r||0}}>
+          <span style={{flex:1,fontSize:10,color:p.id===lastId?T.accent:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name}</span>
+          <button onClick={()=>onLoad(p)} style={{...btnMini,color:T.text,fontSize:10}}>LOAD</button>
+          <button onClick={()=>onDelete(p.id)} style={{...btnMini,color:'#f87171'}}>✕</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ThemePopover({appTheme,setAppTheme,T,onClose}){
+  const at=appTheme,setA=(k,v)=>setAppTheme(a=>({...a,[k]:v}));
+  const [savedThemes,setST]=useState(()=>loadLS('tl_saved_themes',[]));
+  const [saveName,setSaveName]=useState('');
+  const saveST=n=>{if(!n.trim())return;const t={id:mkUid(),name:n.trim(),theme:{...at}};const ns=[...savedThemes,t];setST(ns);saveLS('tl_saved_themes',ns);setSaveName('');};
+  const delST=id=>{const ns=savedThemes.filter(t=>t.id!==id);setST(ns);saveLS('tl_saved_themes',ns);};
+  return(
+    <div style={{position:'fixed',top:44,right:0,width:300,maxHeight:'calc(100vh - 44px)',overflowY:'auto',background:T.panel,border:`1px solid ${T.border}`,borderRadius:`0 0 0 ${(T.r||0)*1.5}px`,zIndex:1000,padding:16,boxShadow:'0 8px 32px rgba(0,0,0,0.6)'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+        <span style={{fontSize:9,letterSpacing:'0.2em',textTransform:'uppercase',color:T.muted}}>App Appearance</span>
+        <button onClick={onClose} style={{background:'none',border:'none',color:T.muted,fontSize:14,cursor:'pointer'}}>✕</button>
+      </div>
+      <div style={{marginBottom:12}}>
+        <label style={mkLBL(T)}>Theme Preset</label>
+        <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
+          {Object.entries(APP_THEMES).map(([k,th])=>(
+            <button key={k} onClick={()=>setA('themeKey',k)} style={{...mkBtn(T,at.themeKey===k),padding:'4px 9px',fontSize:9}}>{th.name}</button>
+          ))}
+          <button onClick={()=>setA('themeKey','custom')} style={{...mkBtn(T,at.themeKey==='custom'),padding:'4px 9px',fontSize:9}}>Custom</button>
+        </div>
+      </div>
+      <div style={{marginBottom:12}}>
+        <label style={mkLBL(T)}>Brightness — {at.brightness||100}%</label>
+        <input type="range" min={40} max={150} value={at.brightness||100} onChange={e=>setA('brightness',+e.target.value)} style={{width:'100%'}}/>
+      </div>
+      <div style={{marginBottom:12}}>
+        <label style={mkLBL(T)}>Corner Radius — {at.borderRadius||0}px</label>
+        <input type="range" min={0} max={16} value={at.borderRadius||0} onChange={e=>setA('borderRadius',+e.target.value)} style={{width:'100%'}}/>
+        <div style={{display:'flex',gap:4,marginTop:6}}>
+          {[['Sharp',0],['Slight',3],['Soft',6],['Round',10],['Pill',16]].map(([lbl,val])=>(
+            <button key={lbl} onClick={()=>setA('borderRadius',val)} style={{...mkBtn(T,(at.borderRadius||0)===val),padding:'3px 5px',fontSize:8,flex:1}}>{lbl}</button>
+          ))}
+        </div>
+      </div>
+      {at.themeKey==='custom'&&(
+        <div style={{borderTop:`1px solid ${T.border}`,paddingTop:12,marginBottom:12}}>
+          <label style={mkLBL(T)}>Custom Colors</label>
+          {[['customBg','Background'],['customPanel','Panel'],['customBorder','Borders'],['customText','Body Text'],['customBright','Heading Text'],['customAccent','Accent']].map(([k,lbl])=>(
+            <div key={k} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+              <input type="color" value={at[k]||'#000000'} onChange={e=>setA(k,e.target.value)} style={{width:24,height:18,border:`1px solid ${T.border}`,padding:0,cursor:'pointer',borderRadius:2}}/>
+              <span style={{fontSize:9,color:T.text,flex:1}}>{lbl}</span>
+              <span style={{fontSize:9,color:T.muted,fontFamily:'monospace'}}>{at[k]}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {at.themeKey!=='custom'&&(
+        <div style={{borderTop:`1px solid ${T.border}`,paddingTop:12,marginBottom:12}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
+            <label style={{...mkLBL(T),marginBottom:0}}>Color Overrides</label>
+            <button onClick={()=>setA('colorOverrides',!at.colorOverrides)} style={{...mkBtn(T,!!at.colorOverrides),padding:'3px 10px',fontSize:9}}>{at.colorOverrides?'On':'Off'}</button>
+          </div>
+          {at.colorOverrides?(
+            <>
+              <div style={{fontSize:8,color:T.muted,marginBottom:8,lineHeight:1.6}}>Override selected preset's colors.</div>
+              {[['customAccent','Accent'],['customText','Body Text'],['customBright','Heading Text']].map(([k,lbl])=>(
+                <div key={k} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                  <input type="color" value={at[k]||'#888888'} onChange={e=>setA(k,e.target.value)} style={{width:24,height:18,border:`1px solid ${T.border}`,padding:0,cursor:'pointer',borderRadius:2}}/>
+                  <span style={{fontSize:9,color:T.text,flex:1}}>{lbl}</span>
+                  <span style={{fontSize:9,color:T.muted,fontFamily:'monospace'}}>{at[k]||'—'}</span>
+                </div>
+              ))}
+            </>
+          ):(
+            <div style={{fontSize:8,color:T.muted,lineHeight:1.6}}>Enable to override accent, body, and heading text colors on top of any preset.</div>
+          )}
+        </div>
+      )}
+      <div style={{borderTop:`1px solid ${T.border}`,paddingTop:12,marginBottom:12}}>
+        <label style={mkLBL(T)}>Player</label>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
+          <span style={{fontSize:9,color:T.text}}>Auto-hide player</span>
+          <button onClick={()=>setA('playerAutoHide',!at.playerAutoHide)} style={{...mkBtn(T,!!at.playerAutoHide),padding:'3px 10px',fontSize:9}}>{at.playerAutoHide?'On':'Off'}</button>
+        </div>
+        {at.playerAutoHide&&<div style={{fontSize:8,color:T.muted,marginBottom:8,lineHeight:1.6}}>Player slides off-screen. Hover the bottom edge to reveal it. Accent dots on the pull tab indicate playback.</div>}
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
+          <span style={{fontSize:9,color:T.text}}>Auto-save entry</span>
+          <button onClick={()=>setA('playerAutoSave',!at.playerAutoSave)} style={{...mkBtn(T,!!at.playerAutoSave),padding:'3px 10px',fontSize:9}}>{at.playerAutoSave?'On':'Off'}</button>
+        </div>
+        {at.playerAutoSave&&(
+          <div>
+            <label style={mkLBL(T)}>Save interval</label>
+            <div style={{display:'flex',gap:4}}>
+              {[[30,'30s'],[60,'1m'],[120,'2m'],[300,'5m']].map(([s,lbl])=>(
+                <button key={s} onClick={()=>setA('playerAutoSaveInterval',s)} style={{...mkBtn(T,(at.playerAutoSaveInterval||60)===s),padding:'3px 0',fontSize:9,flex:1}}>{lbl}</button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+      <div style={{borderTop:`1px solid ${T.border}`,paddingTop:12}}>
+        <label style={mkLBL(T)}>Saved Themes</label>
+        <div style={{display:'flex',gap:6,marginBottom:8}}>
+          <input value={saveName} onChange={e=>setSaveName(e.target.value)} placeholder="Name this theme…" style={{...mkIS(T),flex:1,fontSize:11}}/>
+          <button onClick={()=>saveST(saveName)} style={{...mkBtn(T,true),padding:'5px 10px',fontSize:9}}>Save</button>
+        </div>
+        {savedThemes.length===0&&<div style={{fontSize:9,color:T.muted,textAlign:'center',padding:'6px 0'}}>No saved themes</div>}
+        {savedThemes.map(t=>(
+          <div key={t.id} style={{display:'flex',alignItems:'center',gap:6,marginBottom:5,padding:'5px 8px',background:T.bg,border:`1px solid ${T.border}`,borderRadius:T.r||0}}>
+            <span style={{flex:1,fontSize:10,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.name}</span>
+            <button onClick={()=>setAppTheme(()=>({...t.theme}))} style={{...mkBtn(T),padding:'3px 8px',fontSize:9}}>Load</button>
+            <button onClick={()=>delST(t.id)} style={{background:'none',border:'none',color:'#f87171',cursor:'pointer',fontSize:12}}>✕</button>
+          </div>
+        ))}
+      </div>
+      <div style={{marginTop:10,paddingTop:10,borderTop:`1px solid ${T.border}`,fontSize:8,color:T.muted,lineHeight:1.6}}>Affects app UI only. Label appearance controlled separately.</div>
+    </div>
+  );
+}
+
+// EntryCard — standalone component for archive list
+function EntryCard({T,entry,onOpen,onDelete,isActive}){
+  const st=STATUS_OPT[entry.status||'draft'];
+  return(
+    <div style={{background:isActive?T.panel:T.card,border:`1px solid ${isActive?T.accent:T.border}`,borderRadius:(T.r||0)*1.5,padding:'12px 14px',marginBottom:8,cursor:'pointer'}} onClick={()=>onOpen(entry.id)}>
+      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:8}}>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:12,fontWeight:700,color:T.bright,marginBottom:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{entry.title||'Untitled'}</div>
+          <div style={{fontSize:10,color:T.muted,marginBottom:5}}>{entry.artist||<span style={{opacity:0.4}}>No artist</span>}</div>
+          <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
+            {entry.classCode&&<span style={{fontFamily:'monospace',fontSize:10,color:T.accent,letterSpacing:'0.08em'}}>{entry.classCode}</span>}
+            <span style={{fontSize:8,color:st.color,border:`1px solid ${st.color}44`,padding:'1px 5px',borderRadius:T.r||0}}>{st.label}</span>
+            {entry.hasAudio&&<span style={{fontSize:9,color:T.muted}}>🎵</span>}
+            {entry.hasArt&&<span style={{fontSize:9,color:T.muted}}>🖼</span>}
+          </div>
+        </div>
+        <div style={{flexShrink:0,display:'flex',flexDirection:'column',alignItems:'flex-end',gap:8}}>
+          <button onClick={e=>{e.stopPropagation();if(window.confirm(`Delete "${entry.title||'this entry'}"?`))onDelete(entry.id);}} style={{...btnMini,color:'#f87171',fontSize:13}}>✕</button>
+          <div style={{fontSize:7,color:T.muted,textAlign:'right',letterSpacing:'0.04em'}}>{entry.updated||entry.created}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+// ━━━━━━━━ PLAYER VIEW ━━━━━━━━
+function PlayerView({T,audioElRef,audioObjectUrl,activeEntry,activeEid,meta,audioFile,entries,profiles,activePid,setActivePid,loadEntry,setAudioObjectUrl,setAudioFile,playerVisible}){
+  const canvasRef=useRef();
+  const containerRef=useRef();
+  const rafRef=useRef();
+  const decodedRef=useRef(null);
+  const [playing,setPlaying]=useState(false);
+  const [currentTime,setCurrentTime]=useState(0);
+  const [duration,setDuration]=useState(0);
+  const [volume,setVolume]=useState(1);
+  const [decoding,setDecoding]=useState(false);
+
+  const fmt=s=>{if(!s||!isFinite(s))return'0:00';const m=Math.floor(s/60),sc=Math.floor(s%60);return`${m}:${sc.toString().padStart(2,'0')}`;};
+
+  // Mirror audio element state
+  useEffect(()=>{
+    const el=audioElRef?.current;if(!el)return;
+    const onTime=()=>setCurrentTime(el.currentTime);
+    const onMeta=()=>setDuration(el.duration||0);
+    const onPlay=()=>setPlaying(true);
+    const onPause=()=>setPlaying(false);
+    const onEnd=()=>setPlaying(false);
+    el.addEventListener('timeupdate',onTime);el.addEventListener('loadedmetadata',onMeta);
+    el.addEventListener('durationchange',onMeta);el.addEventListener('play',onPlay);
+    el.addEventListener('pause',onPause);el.addEventListener('ended',onEnd);
+    // Sync initial state
+    setCurrentTime(el.currentTime||0);setDuration(el.duration||0);setPlaying(!el.paused);
+    return()=>{el.removeEventListener('timeupdate',onTime);el.removeEventListener('loadedmetadata',onMeta);el.removeEventListener('durationchange',onMeta);el.removeEventListener('play',onPlay);el.removeEventListener('pause',onPause);el.removeEventListener('ended',onEnd);};
+  },[audioElRef]);
+
+  // Decode waveform whenever track changes
+  useEffect(()=>{
+    decodedRef.current=null;
+    if(!audioObjectUrl)return;
+    let cancelled=false;
+    setDecoding(true);
+    (async()=>{
+      try{
+        const ac=new(window.AudioContext||window.webkitAudioContext)();
+        const res=await fetch(audioObjectUrl);
+        const buf=await res.arrayBuffer();
+        const decoded=await ac.decodeAudioData(buf);
+        if(!cancelled){decodedRef.current=decoded.getChannelData(0);}
+        await ac.close();
+      }catch(e){console.warn('PlayerView decode:',e);}
+      finally{if(!cancelled)setDecoding(false);}
+    })();
+    return()=>{cancelled=true;};
+  },[audioObjectUrl]);
+
+  // Canvas waveform draw loop
+  const drawWave=useCallback(()=>{
+    rafRef.current=requestAnimationFrame(drawWave);
+    const canvas=canvasRef.current;if(!canvas)return;
+    const W=canvas.width,H=canvas.height;if(!W||!H)return;
+    const c=canvas.getContext('2d');
+    c.clearRect(0,0,W,H);
+    const accent=T.accent;
+    const decoded=decodedRef.current;
+
+    if(!decoded||!duration){
+      // Empty state — just draw centre line
+      c.strokeStyle=T.border;c.lineWidth=1;
+      c.beginPath();c.moveTo(0,H/2);c.lineTo(W,H/2);c.stroke();
+      return;
+    }
+
+    const totalSamples=decoded.length;
+    const samplesPerPixel=Math.max(1,Math.floor(totalSamples/W));
+
+    // Draw full waveform as filled envelope
+    c.beginPath();c.moveTo(0,H/2);
+    for(let px=0;px<W;px++){
+      const si=Math.floor((px/W)*totalSamples);
+      let mx=0;
+      for(let s=si;s<Math.min(si+samplesPerPixel,totalSamples);s++) mx=Math.max(mx,Math.abs(decoded[s]));
+      c.lineTo(px,H/2-mx*(H/2-2));
+    }
+    for(let px=W-1;px>=0;px--){
+      const si=Math.floor((px/W)*totalSamples);
+      let mx=0;
+      for(let s=si;s<Math.min(si+samplesPerPixel,totalSamples);s++) mx=Math.max(mx,Math.abs(decoded[s]));
+      c.lineTo(px,H/2+mx*(H/2-2));
+    }
+    c.closePath();
+    c.fillStyle=T.bright+'44';
+    c.fill();
+
+    // Played portion — filled with accent
+    if(currentTime>0&&duration>0){
+      const playedPx=Math.floor((currentTime/duration)*W);
+      c.beginPath();c.moveTo(0,H/2);
+      for(let px=0;px<Math.min(playedPx,W);px++){
+        const si=Math.floor((px/W)*totalSamples);
+        let mx=0;
+        for(let s=si;s<Math.min(si+samplesPerPixel,totalSamples);s++) mx=Math.max(mx,Math.abs(decoded[s]));
+        c.lineTo(px,H/2-mx*(H/2-2));
+      }
+      for(let px=Math.min(playedPx,W)-1;px>=0;px--){
+        const si=Math.floor((px/W)*totalSamples);
+        let mx=0;
+        for(let s=si;s<Math.min(si+samplesPerPixel,totalSamples);s++) mx=Math.max(mx,Math.abs(decoded[s]));
+        c.lineTo(px,H/2+mx*(H/2-2));
+      }
+      c.closePath();
+      const grad=c.createLinearGradient(0,0,playedPx,0);
+      grad.addColorStop(0,accent+'99');grad.addColorStop(1,accent);
+      c.fillStyle=grad;c.fill();
+
+      // Playhead line
+      c.strokeStyle=accent;c.lineWidth=2;
+      c.beginPath();c.moveTo(playedPx,0);c.lineTo(playedPx,H);c.stroke();
+    }
+  },[T,currentTime,duration]);
+
+  useEffect(()=>{
+    rafRef.current=requestAnimationFrame(drawWave);
+    return()=>{if(rafRef.current){cancelAnimationFrame(rafRef.current);rafRef.current=null;}};
+  },[drawWave]);
+
+  // Resize canvas
+  useEffect(()=>{
+    const resize=()=>{const cv=canvasRef.current,p=containerRef.current;if(!cv||!p)return;cv.width=p.clientWidth;cv.height=p.clientHeight;};
+    resize();const ro=new ResizeObserver(resize);if(containerRef.current)ro.observe(containerRef.current);
+    return()=>ro.disconnect();
+  },[]);
+
+  const togglePlay=()=>{const el=audioElRef?.current;if(!el||!audioObjectUrl)return;playing?el.pause():el.play();};
+  const seek=pct=>{const el=audioElRef?.current;if(!el||!duration)return;el.currentTime=pct*duration;};
+  const seekByCanvas=e=>{const r=e.currentTarget.getBoundingClientRect();seek((e.clientX-r.left)/r.width);};
+  const changeVol=v=>{const el=audioElRef?.current;if(!el)return;el.volume=v;setVolume(v);};
+  const skip=sec=>{const el=audioElRef?.current;if(!el)return;el.currentTime=Math.max(0,Math.min(duration,el.currentTime+sec));};
+
+  const thumb=activeEntry?.albumArtThumb||(meta?.albumArt&&!meta.albumArt.startsWith('[stored]')?meta.albumArt:null);
+  const title=activeEntry?.title||meta?.title||audioFile?.name||'No track loaded';
+  const artist=activeEntry?.artist||meta?.artist||'';
+  const classCode=activeEntry?.classCode||'';
+  const hasTrack=!!audioObjectUrl;
+
+  // Group entries by profile for nav
+  const profileEntries=useMemo(()=>profiles.map(p=>({
+    ...p,tracks:entries.filter(e=>e.profileId===p.id).sort((a,b)=>(b.updated||'').localeCompare(a.updated||''))
+  })),[profiles,entries]);
+
+  return(
+    <div style={{height:'100%',display:'flex',overflow:'hidden',background:T.bg}}>
+
+      {/* ── LEFT NAV ── */}
+      <div style={{width:200,flexShrink:0,borderRight:`1px solid ${T.border}`,display:'flex',flexDirection:'column',overflow:'hidden',background:T.panel}}>
+        <div style={{padding:'12px 12px 8px',borderBottom:`1px solid ${T.border}`,flexShrink:0}}>
+          <div style={{fontSize:8,letterSpacing:'0.25em',textTransform:'uppercase',color:T.muted}}>Library</div>
+        </div>
+        <div style={{flex:1,overflowY:'auto',padding:'6px'}}>
+          {profileEntries.length===0&&(
+            <div style={{padding:'20px 8px',fontSize:9,color:T.muted,textAlign:'center',lineHeight:1.8}}>No profiles yet.<br/>Create one in Archive.</div>
+          )}
+          {profileEntries.map(p=>(
+            <div key={p.id} style={{marginBottom:4}}>
+              <div onClick={()=>setActivePid(p.id)} style={{padding:'7px 8px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'space-between',borderRadius:T.r||0,background:activePid===p.id?T.card:'transparent'}}>
+                <span style={{fontSize:10,fontWeight:700,color:activePid===p.id?T.accent:T.bright,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>{p.name}</span>
+                <span style={{fontSize:8,color:T.muted,flexShrink:0,marginLeft:4}}>{p.tracks.length}</span>
+              </div>
+              {activePid===p.id&&p.tracks.map(e=>(
+                <div key={e.id} onClick={()=>loadEntry(e)} style={{padding:'5px 8px 5px 18px',cursor:'pointer',borderRadius:T.r||0,background:e.id===activeEid?T.bg:'transparent',marginBottom:1,display:'flex',alignItems:'center',gap:6}}>
+                  {e.id===activeEid&&<div style={{width:4,height:4,borderRadius:'50%',background:T.accent,flexShrink:0}}/>}
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:9,color:e.id===activeEid?T.accent:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{e.title||'Untitled'}</div>
+                    {e.artist&&<div style={{fontSize:8,color:T.muted,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{e.artist}</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── MAIN AREA ── */}
+      <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0}}>
+
+        {/* Art + Info */}
+        <div style={{flex:1,display:'flex',gap:0,overflow:'hidden',minHeight:0}}>
+          {/* Album art */}
+          <div style={{flexShrink:0,width:'min(40%,320px)',display:'flex',alignItems:'center',justifyContent:'center',padding:24,background:T.bg}}>
+            {thumb?(
+              <div style={{width:'100%',maxWidth:260,aspectRatio:'1',borderRadius:(T.r||0)*2,overflow:'hidden',border:`1px solid ${T.border}`,boxShadow:'0 8px 40px rgba(0,0,0,0.4)'}}>
+                <img src={thumb} style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}} alt=""/>
+              </div>
+            ):(
+              <div style={{width:'100%',maxWidth:260,aspectRatio:'1',borderRadius:(T.r||0)*2,border:`1px solid ${T.border}`,display:'flex',alignItems:'center',justifyContent:'center',background:T.panel}}>
+                <div style={{fontSize:48,opacity:0.08}}>♫</div>
+              </div>
+            )}
+          </div>
+
+          {/* Track info */}
+          <div style={{flex:1,display:'flex',flexDirection:'column',justifyContent:'center',padding:'24px 32px',minWidth:0,overflow:'hidden'}}>
+            {hasTrack?(
+              <>
+                <div style={{fontSize:8,letterSpacing:'0.25em',textTransform:'uppercase',color:T.muted,marginBottom:12}}>Now Playing</div>
+                <div style={{fontSize:26,fontWeight:700,color:T.bright,lineHeight:1.2,marginBottom:6,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{title}</div>
+                {artist&&<div style={{fontSize:13,color:T.text,marginBottom:16,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{artist}</div>}
+                {classCode&&(
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:16}}>
+                    <span style={{fontFamily:'monospace',fontSize:16,color:T.accent,letterSpacing:'0.1em'}}>{classCode}</span>
+                    <span style={{fontSize:9,color:T.muted}}>{activeEntry?.[Symbol.iterator]?'':(activeEntry?.classCode?`— ${activeEntry.metadata?.genre||''}`:'')}</span>
+                  </div>
+                )}
+                <div style={{display:'flex',gap:16,flexWrap:'wrap'}}>
+                  {activeEntry?.metadata?.genre&&<div><div style={{fontSize:7,color:T.muted,letterSpacing:'0.15em',textTransform:'uppercase',marginBottom:2}}>Genre</div><div style={{fontSize:10,color:T.text}}>{activeEntry.metadata.genre}</div></div>}
+                  {activeEntry?.metadata?.bpm&&<div><div style={{fontSize:7,color:T.muted,letterSpacing:'0.15em',textTransform:'uppercase',marginBottom:2}}>BPM</div><div style={{fontSize:10,color:T.text}}>{activeEntry.metadata.bpm}</div></div>}
+                  {activeEntry?.metadata?.key&&<div><div style={{fontSize:7,color:T.muted,letterSpacing:'0.15em',textTransform:'uppercase',marginBottom:2}}>Key</div><div style={{fontSize:10,color:T.text}}>{activeEntry.metadata.key}</div></div>}
+                  {activeEntry?.metadata?.year&&<div><div style={{fontSize:7,color:T.muted,letterSpacing:'0.15em',textTransform:'uppercase',marginBottom:2}}>Year</div><div style={{fontSize:10,color:T.text}}>{activeEntry.metadata.year}</div></div>}
+                  {duration>0&&<div><div style={{fontSize:7,color:T.muted,letterSpacing:'0.15em',textTransform:'uppercase',marginBottom:2}}>Length</div><div style={{fontSize:10,color:T.text}}>{fmt(duration)}</div></div>}
+                </div>
+              </>
+            ):(
+              <div style={{textAlign:'center',opacity:0.3}}>
+                <div style={{fontSize:32,marginBottom:12}}>◈</div>
+                <div style={{fontSize:10,letterSpacing:'0.15em',textTransform:'uppercase',color:T.muted}}>Select a track to play</div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── WAVEFORM + CONTROLS ── */}
+        <div style={{flexShrink:0,borderTop:`1px solid ${T.border}`,background:T.panel,padding:`0 0 ${playerVisible?72:16}px`}}>
+
+          {/* Waveform canvas — click to seek */}
+          <div ref={containerRef} style={{height:64,cursor:hasTrack?'pointer':'default',position:'relative'}} onClick={hasTrack?seekByCanvas:undefined}>
+            <canvas ref={canvasRef} style={{display:'block',width:'100%',height:'100%'}}/>
+            {decoding&&<div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center'}}><span style={{fontSize:8,color:T.muted,letterSpacing:'0.15em'}}>DECODING…</span></div>}
+          </div>
+
+          {/* Time row */}
+          <div style={{display:'flex',justifyContent:'space-between',padding:'2px 16px 10px',fontSize:8,color:T.muted,fontVariantNumeric:'tabular-nums'}}>
+            <span>{fmt(currentTime)}</span>
+            <span>{fmt(duration)}</span>
+          </div>
+
+          {/* Controls row */}
+          <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:10,padding:'0 16px 4px'}}>
+            {/* Restart / Back */}
+            <button onClick={()=>{const el=audioElRef?.current;if(el)el.currentTime=0;}} disabled={!hasTrack} title="Restart" style={{background:'none',border:`1px solid ${hasTrack?T.border:'transparent'}`,color:hasTrack?T.text:T.muted,cursor:hasTrack?'pointer':'default',fontSize:11,padding:'5px 8px',borderRadius:T.r||0,fontFamily:'inherit',lineHeight:1}}>⏮</button>
+            {/* Back 10s */}
+            <button onClick={()=>skip(-10)} disabled={!hasTrack} title="Back 10s" style={{background:'none',border:`1px solid ${hasTrack?T.border:'transparent'}`,color:hasTrack?T.text:T.muted,cursor:hasTrack?'pointer':'default',fontSize:11,padding:'5px 8px',borderRadius:T.r||0,fontFamily:'inherit',lineHeight:1}}>−10s</button>
+            {/* Stop */}
+            <button onClick={()=>{const el=audioElRef?.current;if(!el)return;el.pause();el.currentTime=0;}} disabled={!hasTrack} title="Stop" style={{background:'none',border:`1px solid ${hasTrack?T.border:'transparent'}`,color:hasTrack?T.text:T.muted,cursor:hasTrack?'pointer':'default',fontSize:14,padding:'5px 9px',borderRadius:T.r||0,fontFamily:'inherit',lineHeight:1}}>⏹</button>
+            {/* Play */}
+            <button onClick={()=>{const el=audioElRef?.current;if(el&&audioObjectUrl)el.play();}} disabled={!hasTrack||playing} title="Play" style={{width:44,height:44,borderRadius:'50%',border:`1px solid ${hasTrack&&!playing?T.accent:T.border}`,background:hasTrack&&!playing?T.accent:'transparent',color:hasTrack&&!playing?T.bg:T.muted,fontSize:14,cursor:hasTrack&&!playing?'pointer':'default',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',flexShrink:0}}>▶</button>
+            {/* Pause */}
+            <button onClick={()=>{const el=audioElRef?.current;if(el)el.pause();}} disabled={!hasTrack||!playing} title="Pause" style={{width:44,height:44,borderRadius:'50%',border:`1px solid ${hasTrack&&playing?T.accent:T.border}`,background:hasTrack&&playing?T.accent:'transparent',color:hasTrack&&playing?T.bg:T.muted,fontSize:12,cursor:hasTrack&&playing?'pointer':'default',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',flexShrink:0}}>⏸</button>
+            {/* Forward 10s */}
+            <button onClick={()=>skip(10)} disabled={!hasTrack} title="Forward 10s" style={{background:'none',border:`1px solid ${hasTrack?T.border:'transparent'}`,color:hasTrack?T.text:T.muted,cursor:hasTrack?'pointer':'default',fontSize:11,padding:'5px 8px',borderRadius:T.r||0,fontFamily:'inherit',lineHeight:1}}>+10s</button>
+            {/* Volume */}
+            <div style={{display:'flex',alignItems:'center',gap:6,marginLeft:16}}>
+              <span style={{fontSize:11,color:T.muted,cursor:'pointer'}} onClick={()=>changeVol(volume>0?0:1)}>{volume===0?'🔇':volume<0.5?'🔉':'🔊'}</span>
+              <input type="range" min={0} max={1} step={0.02} value={volume} onChange={e=>changeVol(+e.target.value)} style={{width:72,accentColor:T.accent}}/>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+// ━━━━━━━━ FLOATING PLAYER ━━━━━━━━
+function FloatingPlayer({T,audioObjectUrl,audioFile,activeEntry,meta,autoHide,audioElRef}){
+  const audioEl=audioElRef;
+  const [playing,setPlaying]=useState(false);
+  const [currentTime,setCurrentTime]=useState(0);
+  const [duration,setDuration]=useState(0);
+  const [volume,setVolume]=useState(1);
+  const [minimized,setMinimized]=useState(false);
+  const [revealed,setRevealed]=useState(false);
+  const hideTimer=useRef(null);
+
+  // Sync src when URL changes
+  useEffect(()=>{
+    const el=audioEl.current;if(!el)return;
+    if(audioObjectUrl){el.src=audioObjectUrl;el.load();setCurrentTime(0);setDuration(0);setPlaying(false);}
+    else{el.src='';setPlaying(false);}
+  },[audioObjectUrl]);
+
+  // Wire audio events
+  useEffect(()=>{
+    const el=audioEl.current;if(!el)return;
+    const onTime=()=>setCurrentTime(el.currentTime);
+    const onMeta=()=>setDuration(el.duration||0);
+    const onEnd=()=>setPlaying(false);
+    const onPlay=()=>setPlaying(true);
+    const onPause=()=>setPlaying(false);
+    el.addEventListener('timeupdate',onTime);
+    el.addEventListener('loadedmetadata',onMeta);
+    el.addEventListener('durationchange',onMeta);
+    el.addEventListener('ended',onEnd);
+    el.addEventListener('play',onPlay);
+    el.addEventListener('pause',onPause);
+    return()=>{el.removeEventListener('timeupdate',onTime);el.removeEventListener('loadedmetadata',onMeta);el.removeEventListener('durationchange',onMeta);el.removeEventListener('ended',onEnd);el.removeEventListener('play',onPlay);el.removeEventListener('pause',onPause);};
+  },[]);
+
+  // Auto-hide hover handlers
+  const handleMouseEnter=()=>{
+    if(!autoHide)return;
+    clearTimeout(hideTimer.current);
+    setRevealed(true);
+  };
+  const handleMouseLeave=()=>{
+    if(!autoHide)return;
+    hideTimer.current=setTimeout(()=>setRevealed(false),600);
+  };
+
+  // When autoHide is turned off, reset revealed state
+  useEffect(()=>{if(!autoHide)setRevealed(false);},[autoHide]);
+
+  const togglePlay=()=>{const el=audioEl.current;if(!el||!audioObjectUrl)return;playing?el.pause():el.play();};
+  const seek=v=>{const el=audioEl.current;if(!el||!duration)return;el.currentTime=v;setCurrentTime(v);};
+  const changeVol=v=>{const el=audioEl.current;if(!el)return;el.volume=v;setVolume(v);};
+  const fmt=s=>{if(!s||!isFinite(s))return'0:00';const m=Math.floor(s/60),sec=Math.floor(s%60);return`${m}:${sec.toString().padStart(2,'0')}`;};
+
+  const title=activeEntry?.title||meta?.title||audioFile?.name||'No track loaded';
+  const artist=activeEntry?.artist||meta?.artist||'';
+  const thumb=activeEntry?.albumArtThumb||(meta?.albumArt&&!meta.albumArt.startsWith('[stored]')?meta.albumArt:null);
+  const hasTrack=!!audioObjectUrl;
+
+  // Compute transform: autoHide takes precedence over manual minimized
+  let translateY='translateY(0)';
+  if(autoHide) translateY=revealed?'translateY(0)':'translateY(calc(100% - 4px))';
+  else if(minimized) translateY='translateY(calc(100% - 6px))';
+
+  return(
+    <div
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      style={{position:'fixed',bottom:0,left:0,right:0,zIndex:500,background:T.panel,borderTop:`1px solid ${T.border}`,boxShadow:'0 -4px 24px rgba(0,0,0,0.5)',transition:'transform 0.25s ease',transform:translateY}}>
+      {/* Invisible tall hover zone when auto-hidden — makes it easy to trigger reveal */}
+      {autoHide&&!revealed&&<div style={{position:'absolute',bottom:'100%',left:0,right:0,height:32,cursor:'default'}} onMouseEnter={handleMouseEnter}/>}
+      {/* Drag handle / minimize tab */}
+      <div
+        onClick={()=>!autoHide&&setMinimized(m=>!m)}
+        style={{position:'absolute',top:-12,left:'50%',transform:'translateX(-50%)',width:autoHide?72:48,height:12,background:T.panel,borderTop:`1px solid ${T.border}`,borderLeft:`1px solid ${T.border}`,borderRight:`1px solid ${T.border}`,borderRadius:`${T.r||0}px ${T.r||0}px 0 0`,cursor:autoHide?'default':'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}>
+        {autoHide&&playing&&<div style={{width:5,height:5,borderRadius:'50%',background:T.accent,opacity:0.8}}/>}
+        <div style={{width:20,height:2,background:T.border,borderRadius:1}}/>
+        {autoHide&&playing&&<div style={{width:5,height:5,borderRadius:'50%',background:T.accent,opacity:0.8}}/>}
+      </div>
+      {/* Hidden real audio element */}
+      <audio ref={audioEl} preload="metadata" style={{display:'none'}}/>
+      <div style={{display:'flex',alignItems:'center',gap:12,padding:'8px 16px',height:56}}>
+        {/* Album art */}
+        <div style={{width:36,height:36,flexShrink:0,border:`1px solid ${T.border}`,borderRadius:T.r||0,overflow:'hidden',background:T.bg,display:'flex',alignItems:'center',justifyContent:'center'}}>
+          {thumb?<img src={thumb} style={{width:'100%',height:'100%',objectFit:'cover'}} alt=""/>:<div style={{fontSize:14,opacity:0.2}}>♫</div>}
+        </div>
+        {/* Track info */}
+        <div style={{flex:'0 0 180px',minWidth:0,overflow:'hidden'}}>
+          <div style={{fontSize:10,fontWeight:700,color:hasTrack?T.bright:T.muted,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{title}</div>
+          {artist&&<div style={{fontSize:8,color:T.muted,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{artist}</div>}
+        </div>
+        {/* Play/Pause */}
+        <button onClick={togglePlay} disabled={!hasTrack}
+          style={{flexShrink:0,width:32,height:32,borderRadius:'50%',border:`1px solid ${hasTrack?T.accent:T.border}`,background:hasTrack?T.accent:'transparent',color:hasTrack?T.bg:T.muted,fontSize:12,cursor:hasTrack?'pointer':'default',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',lineHeight:1}}>
+          {playing?'▮▮':'▶'}
+        </button>
+        {/* Progress */}
+        <div style={{flex:1,display:'flex',alignItems:'center',gap:8,minWidth:0}}>
+          <span style={{fontSize:8,color:T.muted,flexShrink:0,fontVariantNumeric:'tabular-nums'}}>{fmt(currentTime)}</span>
+          <div style={{flex:1,position:'relative',height:24,display:'flex',alignItems:'center',cursor:hasTrack?'pointer':'default'}}
+            onClick={e=>{if(!hasTrack||!duration)return;const r=e.currentTarget.getBoundingClientRect();seek((e.clientX-r.left)/r.width*duration);}}>
+            <div style={{width:'100%',height:3,background:T.border,borderRadius:2,overflow:'hidden'}}>
+              <div style={{width:`${duration?currentTime/duration*100:0}%`,height:'100%',background:T.accent,transition:'width 0.1s linear'}}/>
+            </div>
+          </div>
+          <span style={{fontSize:8,color:T.muted,flexShrink:0,fontVariantNumeric:'tabular-nums'}}>{fmt(duration)}</span>
+        </div>
+        {/* Volume */}
+        <div style={{flexShrink:0,display:'flex',alignItems:'center',gap:6}}>
+          <span style={{fontSize:10,color:T.muted,cursor:'pointer'}} onClick={()=>changeVol(volume>0?0:1)}>{volume===0?'🔇':volume<0.5?'🔉':'🔊'}</span>
+          <input type="range" min={0} max={1} step={0.02} value={volume} onChange={e=>changeVol(+e.target.value)}
+            style={{width:64,accentColor:T.accent,cursor:'pointer'}}/>
+        </div>
+      </div>
+    </div>
+  );
+}
+// ━━━━━━━━ APP COMPONENT ━━━━━━━━
+function App(){
+  // Theme
+  const [appTheme,setAppThemeRaw]=useState(()=>loadLS('tl_apptheme',DEFAULT_APP_THEME));
+  const setAppTheme=useCallback(upd=>setAppThemeRaw(a=>{const na=typeof upd==='function'?upd(a):{...a,...upd};saveLS('tl_apptheme',na);return na;}),[]);
+  const [showTheme,setShowTheme]=useState(false);
+  const T=getAppTheme(appTheme);
+
+  useEffect(()=>{
+    document.body.style.filter=`brightness(${appTheme.brightness||100}%)`;
+    document.body.style.background=T.bg;document.body.style.color=T.text;
+    const r=document.documentElement;
+    [['--app-bg',T.bg],['--app-border',T.border],['--app-accent',T.accent],['--app-panel',T.panel],['--app-text',T.text]].forEach(([k,v])=>r.style.setProperty(k,v));
+  },[appTheme,T]);
+
+  const [tab,setTab]=useState('archive');
+  const [savedFlash,setSavedFlash]=useState(false);
+  const [autoSaving,setAutoSaving]=useState(false);
+  const [zipping,setZipping]=useState(false);
+
+  // ── PROFILES
+  const [profiles,setProfilesRaw]=useState(()=>loadLS('tl_profiles',[]));
+  const setProfiles=ps=>{setProfilesRaw(ps);saveLS('tl_profiles',ps);};
+  const [activePid,setActivePidRaw]=useState(()=>loadLS('tl_active_profile',null));
+  const setActivePid=id=>{setActivePidRaw(id);saveLS('tl_active_profile',id);};
+  const [newProf,setNewProf]=useState({open:false,name:'',desc:''});
+  const [editProf,setEditProf]=useState(null); // {id,name,desc} when editing
+  const createProfile=()=>{
+    if(!newProf.name.trim())return;
+    const p={id:mkUid(),name:newProf.name.trim(),description:newProf.desc.trim(),created:todayStr()};
+    setProfiles([...profiles,p]);setActivePid(p.id);
+    setNewProf({open:false,name:'',desc:''});
+  };
+  const saveEditProfile=()=>{
+    if(!editProf||!editProf.name.trim())return;
+    setProfiles(profiles.map(p=>p.id===editProf.id?{...p,name:editProf.name.trim(),description:editProf.desc.trim()}:p));
+    setEditProf(null);
+  };
+  const deleteProfile=id=>{setProfiles(profiles.filter(p=>p.id!==id));setEntries(entries.filter(e=>e.profileId!==id));if(activePid===id)setActivePid(null);};
+  const activeProfile=profiles.find(p=>p.id===activePid)||null;
+
+  // ── ENTRIES
+  const [entries,setEntriesRaw]=useState(()=>loadLS('tl_entries',[]));
+  const setEntries=es=>{setEntriesRaw(es);saveLS('tl_entries',es);};
+  const [activeEid,setActiveEidRaw]=useState(()=>{const saved=loadLS('tl_active_eid',null);return saved;});
+  const setActiveEid=id=>{setActiveEidRaw(id);saveLS('tl_active_eid',id);};
+  const activeEntry=entries.find(e=>e.id===activeEid)||null;
+  const profEntries=useMemo(()=>entries.filter(e=>e.profileId===activePid).sort((a,b)=>(b.updated||'').localeCompare(a.updated||'')),[entries,activePid]);
+
+  const createEntry=()=>{
+    if(!activePid)return;
+    const e={id:mkUid(),profileId:activePid,title:'',artist:'',created:todayStr(),updated:todayStr(),status:'draft',
+      metadata:{...DEFAULT_METADATA},labelFields:{...DEFAULT_FIELDS},labelSettings:{...DEFAULT_SETTINGS},
+      classCode:'',hasAudio:false,hasArt:false,audioFilename:'',audioType:'',albumArtThumb:null};
+    setEntries([...entries,e]);
+    setActiveEid(e.id);
+    // Reset all working state to defaults for the fresh entry
+    setFieldsRaw({...DEFAULT_FIELDS});saveLS('tl_fields',{...DEFAULT_FIELDS});
+    setSettingsRaw({...DEFAULT_SETTINGS});saveLS('tl_settings',{...DEFAULT_SETTINGS});
+    setMetaRaw({...DEFAULT_METADATA});saveLS('tl_metadata',{...DEFAULT_METADATA});
+    setAudioFile(null);
+    setAudioObjectUrl(null);
+    setTab('metadata');
+  };
+
+  const updateEntry=(id,changes)=>{setEntriesRaw(es=>{const ns=es.map(e=>e.id===id?{...e,...changes,updated:todayStr()}:e);saveLS('tl_entries',ns);return ns;});};
+
+  const deleteEntry=async id=>{
+    try{await IDB.del(`audio_${id}`);await IDB.del(`art_${id}`);}catch{}
+    setEntries(entries.filter(e=>e.id!==id));
+    if(activeEid===id)setActiveEid(null);
+  };
+
+  const loadEntry=async e=>{
+    setFieldsRaw({...DEFAULT_FIELDS,...e.labelFields});saveLS('tl_fields',{...DEFAULT_FIELDS,...e.labelFields});
+    setSettingsRaw({...DEFAULT_SETTINGS,...e.labelSettings});saveLS('tl_settings',{...DEFAULT_SETTINGS,...e.labelSettings});
+    // Restore full albumArt from IDB if the entry used the "[stored]" sentinel
+    let restoredMeta={...DEFAULT_METADATA,...e.metadata};
+    if(e.hasArt&&restoredMeta.albumArt&&restoredMeta.albumArt.startsWith('[stored]')){
+      try{
+        const buf=await IDB.get(`art_${e.id}`);
+        if(buf){
+          const blob=new Blob([buf],{type:'image/jpeg'});
+          const dataUrl=await new Promise(res=>{const r=new FileReader();r.onload=ev=>res(ev.target.result);r.readAsDataURL(blob);});
+          restoredMeta={...restoredMeta,albumArt:dataUrl};
+        }
+      }catch{}
+    }
+    setMetaRaw(restoredMeta);saveLS('tl_metadata',restoredMeta);
+    setActiveEid(e.id);
+    setAudioFile(e.hasAudio?{name:e.audioFilename,type:e.audioType,key:`audio_${e.id}`}:null);
+    // Only fetch audio from IDB if this is a different entry — avoid interrupting playback
+    if(e.id!==activeEid){
+      if(e.hasAudio){
+        try{
+          const buf=await IDB.get(`audio_${e.id}`);
+          if(buf){
+            const blob=new Blob([buf],{type:e.audioType||'audio/mpeg'});
+            setAudioObjectUrl(URL.createObjectURL(blob));
+          }
+        }catch{}
+      } else {
+        setAudioObjectUrl(null);
+      }
+    }
+  };
+
+  const saveToEntry=()=>{
+    if(!activeEid){alert('No archive entry selected. Open an entry from the Archive tab first.');return;}
+    try{
+      updateEntry(activeEid,{
+        title:fields.title||meta.title||'',
+        artist:fields.artist||meta.artist||'',
+        metadata:{...meta,albumArt:meta.albumArt&&!meta.albumArt.startsWith('[stored]')?'[stored]':meta.albumArt},
+        labelFields:{...fields},
+        labelSettings:{...settings},
+        classCode:fields.classCode||'',
+      });
+      setSavedFlash(true);
+      setTimeout(()=>setSavedFlash(false),1500);
+    }catch(err){console.error('Save failed:',err);alert('Save failed: '+err.message);}
+  };
+
+  // ── AUTO-SAVE
+  // saveRef always holds the freshest closure so the interval doesn't stale-capture
+  const saveRef=useRef();
+  saveRef.current=()=>{
+    if(!activeEid)return;
+    try{
+      updateEntry(activeEid,{
+        title:fields.title||meta.title||'',
+        artist:fields.artist||meta.artist||'',
+        metadata:{...meta,albumArt:meta.albumArt&&!meta.albumArt.startsWith('[stored]')?'[stored]':meta.albumArt},
+        labelFields:{...fields},
+        labelSettings:{...settings},
+        classCode:fields.classCode||'',
+      });
+      setAutoSaving(true);
+      setTimeout(()=>setAutoSaving(false),1200);
+    }catch(err){console.warn('Auto-save failed:',err);}
+  };
+  useEffect(()=>{
+    if(!appTheme.playerAutoSave||!activeEid)return;
+    const ms=(appTheme.playerAutoSaveInterval||60)*1000;
+    const id=setInterval(()=>saveRef.current?.(),ms);
+    return()=>clearInterval(id);
+  },[appTheme.playerAutoSave,appTheme.playerAutoSaveInterval,activeEid]);
+
+
+  const [fields,setFieldsRaw]=useState(()=>loadLS('tl_fields',DEFAULT_FIELDS));
+  const [settings,setSettingsRaw]=useState(()=>loadLS('tl_settings',DEFAULT_SETTINGS));
+  const setS=useCallback(upd=>setSettingsRaw(s=>{const ns=typeof upd==='function'?upd(s):{...s,...upd};saveLS('tl_settings',ns);return ns;}),[]);
+  const setF=(k,v)=>setFieldsRaw(f=>{const nf={...f,[k]:v};saveLS('tl_fields',nf);return nf;});
+  const setFields=nf=>{setFieldsRaw(nf);saveLS('tl_fields',nf);};
+
+  // ── METADATA — key fix: useCallback prevents remount by keeping setter reference stable
+  const [meta,setMetaRaw]=useState(()=>loadLS('tl_metadata',DEFAULT_METADATA));
+  const setMeta=useCallback((k,v)=>setMetaRaw(m=>{const nm={...m,[k]:v};saveLS('tl_metadata',nm);return nm;}),[]);
+  const setMetaObj=useCallback(obj=>setMetaRaw(m=>{const nm={...m,...obj};saveLS('tl_metadata',nm);return nm;}),[]);
+  const resetMeta=()=>{setMetaRaw(DEFAULT_METADATA);saveLS('tl_metadata',DEFAULT_METADATA);};
+
+  // ── AUDIO
+  const [audioFile,setAudioFile]=useState(null);
+  const [audioObjectUrl,setAudioObjectUrl]=useState(null);
+  const audioRef=useRef();
+  const audioElRef=useRef();
+
+  const loadAudioFile=async file=>{
+    if(!file)return;
+    const buf=await file.arrayBuffer();
+    const key=activeEid?`audio_${activeEid}`:'audio_scratch';
+    await IDB.set(key,buf);
+    const af={name:file.name,type:file.type,size:file.size,key};
+    setAudioFile(af);
+    if(activeEid)updateEntry(activeEid,{hasAudio:true,audioFilename:file.name,audioType:file.type});
+    // Store object URL in state so the <audio> element always has it on mount
+    const blob=new Blob([buf],{type:file.type});
+    const url=URL.createObjectURL(blob);
+    setAudioObjectUrl(url);
+    // Read tags if jsmediatags is available
+    if(typeof jsmediatags!=='undefined'){
+      jsmediatags.read(file,{
+        onSuccess(tag){
+          const t=tag.tags,ch={};
+          if(t.title&&!meta.title)ch.title=t.title;
+          if(t.artist&&!meta.artist)ch.artist=t.artist;
+          if(t.album&&!meta.album)ch.album=t.album;
+          if(t.year&&!meta.year)ch.year=String(t.year);
+          if(t.genre&&!meta.genre)ch.genre=t.genre;
+          if(t.track)ch.trackNum=String(t.track).split('/')[0];
+          if(t.comment?.text&&!meta.comment)ch.comment=t.comment.text;
+          if(Object.keys(ch).length)setMetaObj(ch);
+          if(t.picture){
+            const bytes=new Uint8Array(t.picture.data);
+            const b64=btoa(bytes.reduce((a,b)=>a+String.fromCharCode(b),''));
+            setMetaObj({albumArt:`data:${t.picture.format};base64,${b64}`});
+          }
+        },onError(){}
+      });
+    }
+  };
+
+  const exportTaggedAudio=async()=>{
+    const key=activeEid?`audio_${activeEid}`:'audio_scratch';
+    const buf=await IDB.get(key);
+    if(!buf){alert('No audio file loaded. Upload an audio file in Tags → Audio File first.');return;}
+    if(typeof ID3Writer==='undefined'){alert('ID3 writer not loaded. Please check your internet connection.');return;}
+    try{
+      const writer=new ID3Writer(buf);
+      if(meta.title)writer.setFrame('TIT2',meta.title);
+      if(meta.artist)writer.setFrame('TPE1',[meta.artist]);
+      if(meta.albumArtist)writer.setFrame('TPE2',meta.albumArtist);
+      if(meta.album)writer.setFrame('TALB',meta.album);
+      if(meta.year)writer.setFrame('TYER',meta.year);
+      if(meta.genre)writer.setFrame('TCON',[meta.genre]);
+      if(meta.trackNum)writer.setFrame('TRCK',meta.trackTotal?`${meta.trackNum}/${meta.trackTotal}`:meta.trackNum);
+      if(meta.discNum)writer.setFrame('TPOS',meta.discTotal?`${meta.discNum}/${meta.discTotal}`:meta.discNum);
+      if(meta.bpm)writer.setFrame('TBPM',+meta.bpm||0);
+      if(meta.isrc)writer.setFrame('TSRC',meta.isrc.replace(/-/g,''));
+      if(meta.composer)writer.setFrame('TCOM',[meta.composer]);
+      if(meta.publisher)writer.setFrame('TPUB',meta.publisher);
+      if(meta.copyright)writer.setFrame('TCOP',meta.copyright);
+      if(meta.language)writer.setFrame('TLAN',meta.language);
+      if(meta.comment)writer.setFrame('COMM',{description:'',text:meta.comment});
+      if(meta.upc)writer.setFrame('TXXX',{description:'UPC',value:meta.upc});
+      if(meta.iswc)writer.setFrame('TXXX',{description:'ISWC',value:meta.iswc});
+      if(meta.mood)writer.setFrame('TXXX',{description:'MOOD',value:meta.mood});
+      if(meta.producer)writer.setFrame('TXXX',{description:'PRODUCER',value:meta.producer});
+      if(meta.albumArt&&!meta.albumArt.startsWith('[stored]')){
+        const res=await fetch(meta.albumArt);const artBuf=await res.arrayBuffer();
+        writer.setFrame('APIC',{type:3,data:artBuf,description:'Cover',useUnicodeEncoding:false});
+      }
+      writer.addTag();
+      const blob=writer.getBlob();
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');a.href=url;
+      const base=audioFile?.name||`${meta.title||'track'}.mp3`;
+      const dot=base.lastIndexOf('.');
+      a.download=dot>0?`${base.slice(0,dot)}-tagged${base.slice(dot)}`:`${base}-tagged.mp3`;
+      a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);
+    }catch(err){console.error(err);alert('Tag embedding failed. MP3 (ID3v2) only. For FLAC/WAV/AIFF use a dedicated tagger (Metaflac, bwfmetaedit, etc).');}
+  };
+
+  // ── ALBUM ART
+  const artRef=useRef();
+  const loadAlbumArt=file=>{
+    if(!file||!file.type.startsWith('image/'))return;
+    const r=new FileReader();
+    r.onload=e=>{
+      const img=new Image();img.onload=()=>{
+        const sz=+meta.albumArtSize||3000;
+        const c=document.createElement('canvas');c.width=sz;c.height=sz;
+        const ctx=c.getContext('2d');
+        const side=Math.min(img.width,img.height);
+        const ox=(img.width-side)/2,oy=(img.height-side)/2;
+        ctx.drawImage(img,ox,oy,side,side,0,0,sz,sz);
+        const data=c.toDataURL('image/jpeg',0.92);
+        setMetaObj({albumArt:data});
+        if(activeEid){c.toBlob(async blob=>{const buf=await blob.arrayBuffer();await IDB.set(`art_${activeEid}`,buf);const thumb=c.toDataURL('image/jpeg',0.3);updateEntry(activeEid,{hasArt:true,albumArtThumb:thumb});});}
+      };img.src=e.target.result;
+    };r.readAsDataURL(file);
+  };
+
+  // ── CLASSIFY
+  const [sel,setSel]=useState({digit1:'',digit2:'',digit3:'',digit4:''});
+  const [genCode,setGenCode]=useState('');
+  const [savedCodes,setSavedCodesRaw]=useState(()=>loadLS('tl_codes',[]));
+  const setSavedCodes=cs=>{setSavedCodesRaw(cs);saveLS('tl_codes',cs);};
+  const [copied,setCopied]=useState(false);
+  const [showGuide,setShowGuide]=useState(false);
+  const [decInput,setDecInput]=useState('');
+  const [decResult,setDecResult]=useState(null);
+
+  const buildCode=(ov={})=>{const v={...sel,...ov};const pick=(opts,key)=>{const ks=Object.keys(opts);return v[key]||(ks[Math.floor(Math.random()*ks.length)]);};return`${pick(CLS.digit1.options,'digit1')}${pick(CLS.digit2.options,'digit2')}${pick(CLS.digit3.options,'digit3')}.${pick(CLS.digit4.options,'digit4')}`;};
+  const generateCode=()=>setGenCode(buildCode());
+  const randomGenerate=()=>{setSel({digit1:'',digit2:'',digit3:'',digit4:''});setGenCode(buildCode({digit1:'',digit2:'',digit3:'',digit4:''}));};
+  const decodeCode=()=>{
+    const clean=decInput.trim().replace(/\s/g,'').toUpperCase();
+    const m=clean.match(/^([0-9A-Z])([0-9A-Z])([0-9A-Z])\.([0-9A-Z])$/);
+    if(!m){setDecResult({valid:false,error:'Expected: XXX.X (e.g. 142.7 or S3K.F)'});return;}
+    const[,d1,d2,d3,d4]=m;
+    setDecResult({valid:true,code:clean,full:getCodeDesc(clean),bd:[
+      {p:'1',v:d1,cat:CLS.digit1.name,m:CLS.digit1.options[d1]||'Unknown'},
+      {p:'2',v:d2,cat:CLS.digit2.name,m:CLS.digit2.options[d2]||'Unknown'},
+      {p:'3',v:d3,cat:CLS.digit3.name,m:CLS.digit3.options[d3]||'Unknown'},
+      {p:'4',v:d4,cat:CLS.digit4.name,m:CLS.digit4.options[d4]||'Unknown'},
+    ]});
+  };
+  const saveCode=()=>{if(genCode&&!savedCodes.find(c=>c.code===genCode))setSavedCodes([...savedCodes,{code:genCode,desc:getCodeDesc(genCode),saved:todayStr()}]);};
+  const sendToLabel=code=>{setF('classCode',code);setF('classDesc',getCodeDesc(code));setS({showClass:true});setTab('label');};
+  const exportGuide=()=>{let g='TRACK LAB — CLASSIFICATION GUIDE\n'+'='.repeat(50)+'\n\n';Object.entries(CLS).forEach(([k,d])=>{g+=`Position ${k.replace('digit','')}: ${d.name}\n`+'─'.repeat(40)+'\n';Object.entries(d.options).forEach(([n,dd])=>g+=`  ${n.padEnd(3)} — ${dd}\n`);g+='\n';});const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([g],{type:'text/plain'}));a.download='tracklab-classification-guide.txt';a.click();};
+
+  // ── PRESETS
+  const [presets,setPresetsRaw]=useState(()=>loadLS('tl_presets',[]));
+  const setPresets=ps=>{setPresetsRaw(ps);saveLS('tl_presets',ps);};
+  const [lastPid,setLastPid]=useState(()=>loadLS('tl_last_preset',null));
+
+  // ── LABEL EXPORT
+  const [exporting,setExporting]=useState(false);
+  const [exportMsg,setExportMsg]=useState('');
+  const exportLabel=async()=>{
+    setExporting(true);setExportMsg('Rendering…');
+    const wrap=document.createElement('div');wrap.style.cssText=`position:fixed;left:-99999px;top:0;width:${settings.labelW}px;overflow:visible;pointer-events:none;z-index:-1;`;
+    document.body.appendChild(wrap);const el=document.createElement('div');wrap.appendChild(el);
+    await new Promise(res=>ReactDOM.render(React.createElement(TrackLabel,{fields,settings}),el,res));
+    await new Promise(r=>setTimeout(r,120));
+    try{
+      const sc=getColors(settings);
+      const canvas=await html2canvas(el.firstChild||el,{scale:settings.exportScale,width:settings.labelW,height:settings.labelH,useCORS:true,allowTaint:true,backgroundColor:sc.bg||'#fff',logging:false});
+      const fmt=settings.exportFormat,mime=fmt==='jpeg'?'image/jpeg':'image/png',ext=fmt==='jpeg'?'jpg':'png';
+      const url=canvas.toDataURL(mime,fmt==='jpeg'?0.95:undefined);
+      const slug=(fields.title||'track').replace(/\s+/g,'-').toLowerCase();
+      const a=document.createElement('a');a.href=url;a.download=`label-${slug}.${ext}`;a.click();
+      setExportMsg(`✓ ${canvas.width}×${canvas.height}px`);setTimeout(()=>setExportMsg(''),5000);
+    }catch{setExportMsg('Export failed');}
+    finally{ReactDOM.unmountComponentAtNode(el);document.body.removeChild(wrap);setExporting(false);}
+  };
+
+  // ── ARCHIVE EXPORTS
+  const exportImportRef=useRef();
+  const exportCSV=()=>{
+    const pm=Object.fromEntries(profiles.map(p=>[p.id,p.name]));
+    const cols=['ID','Profile','Title','Artist','Album','Year','Genre','BPM','Key','ISRC','UPC','Class Code','Status','Has Audio','Has Art','Created','Updated'];
+    const rows=entries.map(e=>[e.id,pm[e.profileId]||'',e.title||'',e.artist||'',e.metadata?.album||'',e.metadata?.year||'',e.metadata?.genre||'',e.metadata?.bpm||'',e.metadata?.key||'',e.metadata?.isrc||'',e.metadata?.upc||'',e.classCode||'',e.status||'draft',e.hasAudio?'Yes':'No',e.hasArt?'Yes':'No',e.created||'',e.updated||'']);
+    const csv=[cols,...rows].map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`tracklab-${todayStr()}.csv`;a.click();
+  };
+  const exportJSON=()=>{
+    const payload={app:'tracklab',version:'4',exportedAt:new Date().toISOString(),profiles,entries:entries.map(e=>({...e,albumArtThumb:undefined}))};
+    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));a.download=`tracklab-backup-${todayStr()}.json`;a.click();
+  };
+  const importJSON=async file=>{
+    try{
+      const d=JSON.parse(await file.text());
+      if(d.profiles)setProfiles([...profiles,...d.profiles.filter(p=>!profiles.find(x=>x.id===p.id))]);
+      if(d.entries)setEntries([...entries,...d.entries.filter(e=>!entries.find(x=>x.id===e.id))]);
+      alert(`✓ Imported ${d.profiles?.length||0} profiles, ${d.entries?.length||0} entries`);
+    }catch{alert('Invalid backup file. Expecting Track Lab JSON format.');}
+  };
+  const exportZIP=async()=>{
+    if(typeof JSZip==='undefined'){alert('JSZip not loaded');return;}
+    setZipping(true);
+    try{
+      const zip=new JSZip();const pm=Object.fromEntries(profiles.map(p=>[p.id,p.name]));
+      zip.file('_manifest.json',JSON.stringify({app:'tracklab',version:'4',exportedAt:new Date().toISOString(),profiles,totalEntries:entries.length},null,2));
+      for(const e of entries){
+        const folderName=`${pm[e.profileId]||'unknown'}/${(e.artist||'artist').replace(/[^a-z0-9]/gi,'_')}__${(e.title||e.id).replace(/[^a-z0-9]/gi,'_')}`;
+        const f=zip.folder(folderName);
+        f.file('metadata.json',JSON.stringify({...e,albumArtThumb:undefined},null,2));
+        // Use STORE (no compression) for audio/art — they're already compressed formats
+        if(e.hasAudio){try{const buf=await IDB.get(`audio_${e.id}`);if(buf)f.file(e.audioFilename||'audio.mp3',buf,{compression:'STORE'});}catch{}}
+        if(e.hasArt){try{const buf=await IDB.get(`art_${e.id}`);if(buf)f.file('artwork.jpg',buf,{compression:'STORE'});}catch{}}
+      }
+      const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:3}});
+      const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`tracklab-archive-${todayStr()}.zip`;a.click();
+    }catch(err){console.error(err);alert('ZIP export failed: '+err.message);}
+    finally{setZipping(false);}
+  };
+
+  // ── SEND META TO LABEL
+  const sendMetaToLabel=()=>{
+    const nf={...fields,artist:meta.artist||fields.artist,title:meta.title||fields.title,catalog:meta.catalog||fields.catalog,isrc:meta.isrc||fields.isrc,upc:meta.upc||fields.upc};
+    setFields(nf);
+    setS(s=>{const mf=(s.metaFields||[]).map(m=>{const l=m.label.toUpperCase();if(l==='BPM'&&meta.bpm)return{...m,value:meta.bpm};if(l==='KEY'&&meta.key)return{...m,value:meta.key};if(l==='GENRE'&&meta.genre)return{...m,value:meta.genre};if((l==='YEAR'||l==='DATE')&&meta.year)return{...m,value:meta.year};return m;});return{...s,metaFields:mf};});
+    setTab('label');
+  };
+
+  const mS={fontSize:9,color:T.muted,lineHeight:1.6};
+  const h2S={fontSize:12,fontWeight:700,color:T.bright,marginBottom:14,letterSpacing:'0.06em',textTransform:'uppercase'};
+  const prevScale=Math.min(1,420/settings.labelW);
+  // ━━━━━━━━ TAB BAR ━━━━━━━━
+  const tabBar=(
+    <div style={{height:44,display:'flex',alignItems:'center',justifyContent:'space-between',background:T.panel,borderBottom:`1px solid ${T.border}`,padding:'0 14px',flexShrink:0,position:'relative',zIndex:100}}>
+      <div style={{display:'flex',alignItems:'center',gap:8,minWidth:0}}>
+        <div style={{fontSize:9,letterSpacing:'0.3em',textTransform:'uppercase',color:T.muted,flexShrink:0}}>Track Lab</div>
+        {activeProfile&&<span style={{fontSize:8,color:T.accent,border:`1px solid ${T.accent}44`,padding:'2px 7px',borderRadius:T.r||0,flexShrink:0}}>{activeProfile.name}</span>}
+        {activeEntry&&<span style={{fontSize:8,color:T.muted,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>· {activeEntry.title||'Untitled'}</span>}
+      </div>
+      <div style={{display:'flex',gap:1,flexShrink:0}}>
+        {[['info','Info'],['archive','Archive'],['metadata','Tags'],['classify','Classify'],['label','Label'],['catalog',`Codes (${savedCodes.length})`],['viz','Player']].map(([id,lbl])=>(
+          <button key={id} onClick={()=>setTab(id)} style={{padding:'6px 11px',background:tab===id?T.accent:'transparent',color:tab===id?T.bg:T.muted,border:'none',fontFamily:'inherit',fontSize:8,letterSpacing:'0.1em',textTransform:'uppercase',cursor:'pointer',fontWeight:tab===id?700:400,borderRadius:T.r||0}}>
+            {lbl}
+          </button>
+        ))}
+      </div>
+      <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
+        {autoSaving&&<span className="tl-spin" style={{fontSize:10,color:T.muted,lineHeight:1}}>↻</span>}
+        {activeEid&&<button onClick={saveToEntry} style={{...mkBtn(T,true),padding:'4px 10px',fontSize:8,...(savedFlash?{background:'#3fb950'}:{}),transition:'background 0.2s'}}>{savedFlash?'✓ Saved':'⬆ Save'}</button>}
+        <button onClick={()=>setShowTheme(!showTheme)} style={{background:showTheme?T.accent:T.bg,border:`1px solid ${T.border}`,color:showTheme?T.bg:T.muted,fontSize:13,padding:'3px 7px',cursor:'pointer',borderRadius:T.r||0}}>⚙</button>
+      </div>
+      {showTheme&&<ThemePopover appTheme={appTheme} setAppTheme={setAppTheme} T={T} onClose={()=>setShowTheme(false)}/>}
+    </div>
+  );
+
+  // ━━━━━━━━ INFO TAB ━━━━━━━━
+  const infoTab=(
+    <div style={{maxWidth:720,margin:'0 auto',padding:'32px 20px'}}>
+      <div style={{...mkCard(T),padding:'32px 28px',marginBottom:20,textAlign:'center'}}>
+        <div style={{fontSize:11,letterSpacing:'0.4em',textTransform:'uppercase',color:T.muted,marginBottom:8}}>Welcome to</div>
+        <div style={{fontSize:38,fontWeight:700,color:T.accent,letterSpacing:'0.08em',lineHeight:1,marginBottom:6}}>TRACK LAB</div>
+        <div style={{fontSize:11,letterSpacing:'0.2em',textTransform:'uppercase',color:T.muted,marginBottom:18}}>Music Archive & Label Design System</div>
+        <div style={{fontSize:12,color:T.text,lineHeight:1.85,maxWidth:520,margin:'0 auto'}}>A personal archival system for your music. Catalogue every track with industry-standard metadata, design physical and digital labels, generate classification codes, embed ID3 tags into your audio files, and maintain an organised archive across unlimited artist profiles.</div>
+      </div>
+      <div style={{...mkCard(T),marginBottom:16}}>
+        <div style={{fontSize:10,fontWeight:700,color:T.accent,letterSpacing:'0.15em',textTransform:'uppercase',marginBottom:14}}>Workflow</div>
+        {[
+          ['1 — Create Profile','Go to Archive → New Profile. Create one profile per artist or project. Each profile holds unlimited track entries.'],
+          ['2 — New Track Entry','Inside a profile, click "+ New Track Entry". This opens the Tags panel for that entry. Give it a title, artist, and any metadata.'],
+          ['3 — Upload Audio','In Tags → Audio File, drop your audio file. Existing ID3 tags are read automatically. Export a properly-tagged MP3 with all your data embedded.'],
+          ['4 — Album Art','In Tags → Album Art, upload your artwork. It is center-cropped and saved at your chosen output resolution (up to 3000×3000).'],
+          ['5 — Classify','In the Classify tab, generate a 4-character classification code describing the track\'s genre, mood, tempo, and texture. Save it to the entry.'],
+          ['6 — Design Label','In the Label tab, design a physical or digital label. Content flows from the Tags tab. Export as PNG or JPG at any resolution.'],
+          ['7 — Export & Backup','Use Archive → Export ZIP to create a portable archive of all audio, artwork, and metadata. Import JSON to restore on another device.'],
+        ].map(([title,body])=>(
+          <div key={title} style={{display:'flex',gap:14,padding:'10px 12px',background:T.bg,border:`1px solid ${T.border}`,borderRadius:T.r||0,marginBottom:6}}>
+            <div style={{fontSize:9,fontWeight:700,color:T.accent,minWidth:110,paddingTop:2,flexShrink:0}}>{title}</div>
+            <div style={{fontSize:11,color:T.text,lineHeight:1.75}}>{body}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
+        <div style={mkCard(T)}>
+          <div style={{fontSize:9,fontWeight:700,color:T.accent,letterSpacing:'0.12em',textTransform:'uppercase',marginBottom:8}}>Classification Format</div>
+          <div style={{fontFamily:'monospace',fontSize:20,color:T.bright,letterSpacing:'0.2em',marginBottom:8,textAlign:'center'}}>XXX.X</div>
+          {[['Pos 1','Genre / Style'],['Pos 2','Mood / Energy'],['Pos 3','Tempo / Feel'],['Pos 4','Texture']].map(([p,d])=>(
+            <div key={p} style={{display:'flex',gap:8,marginBottom:4}}><span style={{fontSize:9,color:T.accent,minWidth:36,flexShrink:0}}>{p}</span><span style={{fontSize:9,color:T.muted}}>{d} · 0–9, A–Z</span></div>
+          ))}
+        </div>
+        <div style={mkCard(T)}>
+          <div style={{fontSize:9,fontWeight:700,color:T.accent,letterSpacing:'0.12em',textTransform:'uppercase',marginBottom:8}}>Cloud Backup</div>
+          <div style={{fontSize:10,color:T.text,lineHeight:1.8}}>All data stored locally (IndexedDB + localStorage). To back up: <strong style={{color:T.bright}}>Archive → Export ZIP</strong> — creates a portable archive with audio, art, and metadata organised by profile and track. Upload to Google Drive, Dropbox, or iCloud. To restore: use <strong style={{color:T.bright}}>Import JSON</strong>.</div>
+        </div>
+      </div>
+      <div style={{...mkCard(T)}}>
+        <div style={{fontSize:9,fontWeight:700,color:T.accent,letterSpacing:'0.12em',textTransform:'uppercase',marginBottom:8}}>On the Fonts</div>
+        <div style={{fontSize:11,color:T.text,lineHeight:1.8}}><strong style={{color:T.bright}}>Share Tech Mono</strong> approximates OCR-B — the font on actual thermal shipping labels. <strong style={{color:T.bright}}>B612 Mono</strong> was designed by Airbus for aircraft cockpit displays. <strong style={{color:T.bright}}>Barlow Condensed</strong> approximates Pragmatica, the Soviet-era condensed grotesque used in Tarkovsky's title cards.</div>
+      </div>
+      <div style={{textAlign:'center',padding:'20px 0 0',color:T.muted,fontSize:8,letterSpacing:'0.2em',textTransform:'uppercase'}}>Track Lab v4 · All data stored locally · No account required</div>
+    </div>
+  );
+
+  // ━━━━━━━━ ARCHIVE TAB ━━━━━━━━
+  const archiveTab=(
+    <div style={{display:'flex',height:'calc(100vh - 44px)',overflow:'hidden'}}>
+      {/* PROFILES SIDEBAR */}
+      <div style={{width:220,flexShrink:0,background:T.panel,borderRight:`1px solid ${T.border}`,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+        <div style={{padding:'12px 12px 10px',borderBottom:`1px solid ${T.border}`,flexShrink:0}}>
+          <div style={{fontSize:8,letterSpacing:'0.2em',textTransform:'uppercase',color:T.muted,marginBottom:8}}>Artist Profiles</div>
+          {newProf.open?(
+            <div>
+              <input value={newProf.name} onChange={e=>setNewProf(p=>({...p,name:e.target.value}))} placeholder="Artist or project name" style={{...mkIS(T),marginBottom:5,fontSize:11}} onKeyDown={e=>e.key==='Enter'&&createProfile()}/>
+              <input value={newProf.desc} onChange={e=>setNewProf(p=>({...p,desc:e.target.value}))} placeholder="Description (optional)" style={{...mkIS(T),marginBottom:6,fontSize:11}}/>
+              <div style={{display:'flex',gap:5}}>
+                <button onClick={createProfile} style={{...mkBtn(T,true),flex:1,padding:'5px 0',fontSize:9}}>Create</button>
+                <button onClick={()=>setNewProf({open:false,name:'',desc:''})} style={{...mkBtn(T),padding:'5px 8px',fontSize:9}}>✕</button>
+              </div>
+            </div>
+          ):(
+            <button onClick={()=>setNewProf(p=>({...p,open:true}))} style={{...mkBtn(T,true),width:'100%',padding:'6px 0',fontSize:9}}>+ New Profile</button>
+          )}
+        </div>
+        <div style={{flex:1,overflowY:'auto',padding:'6px'}}>
+          {profiles.length===0&&<div style={{fontSize:9,color:T.muted,textAlign:'center',padding:'20px 8px',lineHeight:1.8}}>No profiles yet.<br/>Create one to start<br/>building your archive.</div>}
+          {profiles.map(p=>(
+            <div key={p.id}>
+              {editProf?.id===p.id?(
+                <div style={{padding:'8px',marginBottom:4,background:T.card,border:`1px solid ${T.accent}`,borderRadius:T.r||0}}>
+                  <input value={editProf.name} onChange={e=>setEditProf(ep=>({...ep,name:e.target.value}))} style={{...mkIS(T),marginBottom:4,fontSize:11}} onKeyDown={e=>e.key==='Enter'&&saveEditProfile()}/>
+                  <input value={editProf.desc} onChange={e=>setEditProf(ep=>({...ep,desc:e.target.value}))} placeholder="Description" style={{...mkIS(T),marginBottom:6,fontSize:11}}/>
+                  <div style={{display:'flex',gap:4}}>
+                    <button onClick={saveEditProfile} style={{...mkBtn(T,true),flex:1,padding:'4px 0',fontSize:9}}>Save</button>
+                    <button onClick={()=>setEditProf(null)} style={{...mkBtn(T),padding:'4px 8px',fontSize:9}}>✕</button>
+                  </div>
+                </div>
+              ):(
+                <div onClick={()=>setActivePid(p.id)} style={{padding:'9px 10px',marginBottom:4,background:activePid===p.id?T.card:T.bg,border:`1px solid ${activePid===p.id?T.accent:T.border}`,borderRadius:T.r||0,cursor:'pointer',position:'relative'}}>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                    <div style={{fontSize:11,fontWeight:700,color:activePid===p.id?T.accent:T.bright,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1,minWidth:0}}>{p.name}</div>
+                    <div style={{display:'flex',alignItems:'center',gap:4,flexShrink:0,marginLeft:4}}>
+                      <span style={{fontSize:8,color:T.muted}}>{entries.filter(e=>e.profileId===p.id).length}</span>
+                      <button onClick={ev=>{ev.stopPropagation();setEditProf({id:p.id,name:p.name,desc:p.description||''}); setActivePid(p.id);}} style={{background:'none',border:'none',color:T.muted,cursor:'pointer',fontSize:10,padding:'0 2px',lineHeight:1}}>✎</button>
+                    </div>
+                  </div>
+                  {p.description&&<div style={{fontSize:9,color:T.muted,marginTop:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.description}</div>}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+        <div style={{padding:'8px',paddingBottom:audioObjectUrl&&!appTheme.playerAutoHide?72:8,borderTop:`1px solid ${T.border}`,flexShrink:0,display:'flex',flexDirection:'column',gap:4}}>
+          <div style={{fontSize:7,letterSpacing:'0.15em',textTransform:'uppercase',color:T.muted,marginBottom:2}}>Export & Backup</div>
+          <button onClick={exportCSV} style={{...mkBtn(T),width:'100%',padding:'5px 0',fontSize:8}}>📊 Export CSV</button>
+          <button onClick={exportJSON} style={{...mkBtn(T),width:'100%',padding:'5px 0',fontSize:8}}>💾 Backup JSON</button>
+          <button onClick={exportZIP} disabled={zipping} style={{...mkBtn(T),width:'100%',padding:'5px 0',fontSize:8,opacity:zipping?0.6:1}}>{zipping?'⏳ Building ZIP…':'📦 Export ZIP (audio+art)'}</button>
+          <button onClick={()=>exportImportRef.current.click()} style={{...mkBtn(T),width:'100%',padding:'5px 0',fontSize:8}}>⬆ Import JSON</button>
+          <input ref={exportImportRef} type="file" accept=".json" style={{display:'none'}} onChange={e=>e.target.files[0]&&importJSON(e.target.files[0])}/>
+        </div>
+      </div>
+
+      {/* ENTRY LIST */}
+      <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0}}>
+        {activePid?(
+          <>
+            <div style={{padding:'12px 16px',borderBottom:`1px solid ${T.border}`,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'space-between',background:T.panel,gap:10}}>
+              <div>
+                <div style={{fontSize:13,fontWeight:700,color:T.bright}}>{activeProfile?.name}</div>
+                <div style={{fontSize:9,color:T.muted}}>{profEntries.length} {profEntries.length===1?'track':'tracks'}</div>
+              </div>
+              <div style={{display:'flex',gap:6}}>
+                <button onClick={createEntry} style={{...mkBtn(T,true),padding:'7px 14px',fontSize:9}}>+ New Track</button>
+                <button onClick={()=>{if(window.confirm(`Delete profile "${activeProfile?.name}" and ALL its entries?`)){deleteProfile(activePid);}}} style={{...mkBtn(T),padding:'7px 10px',fontSize:8,color:'#f87171'}}>Delete Profile</button>
+              </div>
+            </div>
+            <div style={{flex:1,overflowY:'auto',padding:'14px 16px'}}>
+              {profEntries.length===0?(
+                <div style={{...mkCard(T),textAlign:'center',padding:40}}>
+                  <div style={{fontSize:32,opacity:0.15,marginBottom:12}}>🎵</div>
+                  <div style={{...mS,marginBottom:16}}>No tracks yet.</div>
+                  <button onClick={createEntry} style={mkBtn(T,true)}>+ New Track Entry</button>
+                </div>
+              ):(
+                profEntries.map(e=>(
+                  <EntryCard key={e.id} T={T} entry={e} isActive={e.id===activeEid}
+                    onOpen={id=>{const ent=entries.find(x=>x.id===id);if(ent)loadEntry(ent);}}
+                    onDelete={deleteEntry}/>
+                ))
+              )}
+            </div>
+          </>
+        ):(
+          <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:14,padding:40}}>
+            <div style={{fontSize:36,opacity:0.1}}>◈</div>
+            <div style={{...mS,textAlign:'center'}}>Select an artist profile<br/>to view and manage tracks.</div>
+          </div>
+        )}
+      </div>
+
+      {/* ENTRY DETAIL */}
+      {activeEntry&&(
+        <div style={{width:240,flexShrink:0,background:T.panel,borderLeft:`1px solid ${T.border}`,overflowY:'auto',padding:14,display:'flex',flexDirection:'column',gap:10}}>
+          <div style={{fontSize:8,letterSpacing:'0.2em',textTransform:'uppercase',color:T.muted}}>Entry Detail</div>
+          {activeEntry.albumArtThumb&&<div style={{width:'100%',aspectRatio:'1',overflow:'hidden',borderRadius:T.r||0,border:`1px solid ${T.border}`}}><img src={activeEntry.albumArtThumb} style={{width:'100%',height:'100%',objectFit:'cover'}}/></div>}
+          <div><div style={{fontSize:13,fontWeight:700,color:T.bright,marginBottom:2}}>{activeEntry.title||'Untitled'}</div><div style={{fontSize:10,color:T.muted}}>{activeEntry.artist}</div></div>
+          {activeEntry.hasAudio&&(
+            <div>
+              <div style={{fontSize:8,color:T.muted,marginBottom:4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{activeEntry.audioFilename}</div>
+              <audio key={activeEntry.id} controls style={{width:'100%',height:28}} ref={el=>{if(el&&!el.src){IDB.get(`audio_${activeEntry.id}`).then(buf=>{if(buf){el.src=URL.createObjectURL(new Blob([buf],{type:activeEntry.audioType||'audio/mpeg'}));}});}}}/>
+            </div>
+          )}
+          <div>
+            <label style={mkLBL(T)}>Status</label>
+            <select value={activeEntry.status||'draft'} onChange={e=>updateEntry(activeEntry.id,{status:e.target.value})} style={{...mkIS(T)}}>
+              {Object.entries(STATUS_OPT).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+            </select>
+          </div>
+          {activeEntry.classCode&&<div><div style={{fontFamily:'monospace',fontSize:18,color:T.accent,marginBottom:3}}>{activeEntry.classCode}</div><div style={{fontSize:9,color:T.muted,lineHeight:1.5}}>{getCodeDesc(activeEntry.classCode)}</div></div>}
+          <div style={{fontSize:7,color:T.muted}}>Created {activeEntry.created} · Updated {activeEntry.updated}</div>
+          <div style={{display:'flex',flexDirection:'column',gap:5}}>
+            <button onClick={()=>{loadEntry(activeEntry);setTab('metadata');}} style={{...mkBtn(T),width:'100%',padding:'7px 0',fontSize:9}}>✏ Edit Tags</button>
+            <button onClick={()=>{loadEntry(activeEntry);setTab('label');}} style={{...mkBtn(T),width:'100%',padding:'7px 0',fontSize:9}}>🏷 Edit Label</button>
+            <button onClick={()=>{loadEntry(activeEntry);setTab('classify');}} style={{...mkBtn(T),width:'100%',padding:'7px 0',fontSize:9}}>◈ Classify</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+  // ━━━━━━━━ METADATA / TAGS TAB ━━━━━━━━
+  const [metaSection,setMetaSection]=useState('core');
+  const metadataTab=(
+    <div style={{display:'flex',height:'calc(100vh - 44px)',overflow:'hidden'}}>
+      <div style={{width:155,flexShrink:0,background:T.panel,borderRight:`1px solid ${T.border}`,display:'flex',flexDirection:'column'}}>
+        <div style={{padding:'12px 12px 8px',borderBottom:`1px solid ${T.border}`}}>
+          <div style={{fontSize:8,letterSpacing:'0.2em',textTransform:'uppercase',color:T.muted}}>Tag Sections</div>
+        </div>
+        <div style={{flex:1,padding:6,overflowY:'auto'}}>
+          {[['core','Core Info'],['publish','Publishing'],['codes','ISRC / UPC'],['audio','Audio File'],['art','Album Art'],['extra','Extra Tags'],['summary','Summary']].map(([id,lbl])=>(
+            <div key={id} onClick={()=>setMetaSection(id)} style={{padding:'8px 10px',marginBottom:3,background:metaSection===id?T.card:T.bg,border:`1px solid ${metaSection===id?T.accent:T.border}`,borderRadius:T.r||0,cursor:'pointer',fontSize:10,color:metaSection===id?T.accent:T.text}}>
+              {lbl}
+            </div>
+          ))}
+        </div>
+        <div style={{padding:8,paddingBottom:audioObjectUrl&&!appTheme.playerAutoHide?72:8,borderTop:`1px solid ${T.border}`,display:'flex',flexDirection:'column',gap:4}}>
+          <button onClick={sendMetaToLabel} style={{...mkBtn(T,true),width:'100%',padding:'7px 0',fontSize:8}}>→ Send to Label</button>
+          <button onClick={exportTaggedAudio} style={{...mkBtn(T),width:'100%',padding:'7px 0',fontSize:8}}>⬇ Export Tagged MP3</button>
+          {activeEid&&<button onClick={saveToEntry} style={{...mkBtn(T,true),width:'100%',padding:'7px 0',fontSize:8,...(savedFlash?{background:'#3fb950'}:{}),transition:'background 0.2s'}}>{savedFlash?'✓ Saved':'⬆ Save to Archive'}</button>}
+          <button onClick={resetMeta} style={{...mkBtn(T),width:'100%',padding:'5px 0',fontSize:7,color:T.muted}}>↺ Reset Fields</button>
+        </div>
+      </div>
+      <div style={{flex:1,overflowY:'auto',padding:'22px 28px'}}>
+        {metaSection==='core'&&(
+          <div style={{maxWidth:540}}>
+            <div style={h2S}>Core Track Info</div>
+            <MF T={T} label="Title"><TInp T={T} value={meta.title} onChange={e=>setMeta('title',e.target.value)} placeholder="Track title (as it will appear in stores)"/></MF>
+            <MF T={T} label="Artist"><TInp T={T} value={meta.artist} onChange={e=>setMeta('artist',e.target.value)} placeholder="Primary artist / performer"/></MF>
+            <MF T={T} label="Album Artist"><TInp T={T} value={meta.albumArtist} onChange={e=>setMeta('albumArtist',e.target.value)} placeholder="For VA compilations"/></MF>
+            <MF T={T} label="Album / Release Title"><TInp T={T} value={meta.album} onChange={e=>setMeta('album',e.target.value)}/></MF>
+            <Row2><MF T={T} label="Year"><TInp T={T} value={meta.year} onChange={e=>setMeta('year',e.target.value)} placeholder="YYYY"/></MF><MF T={T} label="Genre"><TInp T={T} value={meta.genre} onChange={e=>setMeta('genre',e.target.value)}/></MF></Row2>
+            <Row2><MF T={T} label="Track #"><TInp T={T} value={meta.trackNum} onChange={e=>setMeta('trackNum',e.target.value)} placeholder="e.g. 3"/></MF><MF T={T} label="of Total"><TInp T={T} value={meta.trackTotal} onChange={e=>setMeta('trackTotal',e.target.value)} placeholder="e.g. 12"/></MF></Row2>
+            <Row2><MF T={T} label="Disc #"><TInp T={T} value={meta.discNum} onChange={e=>setMeta('discNum',e.target.value)}/></MF><MF T={T} label="of Total"><TInp T={T} value={meta.discTotal} onChange={e=>setMeta('discTotal',e.target.value)}/></MF></Row2>
+            <Row2><MF T={T} label="BPM"><TInp T={T} value={meta.bpm} onChange={e=>setMeta('bpm',e.target.value)}/></MF><MF T={T} label="Key"><TInp T={T} value={meta.key} onChange={e=>setMeta('key',e.target.value)} placeholder="e.g. F# minor"/></MF></Row2>
+            <div style={{display:'flex',gap:24,marginTop:6}}><Tog T={T} label="Explicit" value={meta.explicit} onChange={v=>setMeta('explicit',v)}/><Tog T={T} label="Compilation" value={meta.compilation} onChange={v=>setMeta('compilation',v)}/></div>
+          </div>
+        )}
+        {metaSection==='publish'&&(
+          <div style={{maxWidth:540}}>
+            <div style={h2S}>Publishing & Rights</div>
+            <MF T={T} label="Composer"><TInp T={T} value={meta.composer} onChange={e=>setMeta('composer',e.target.value)} placeholder="Last, First format recommended"/></MF>
+            <MF T={T} label="Lyricist"><TInp T={T} value={meta.lyricist} onChange={e=>setMeta('lyricist',e.target.value)}/></MF>
+            <MF T={T} label="Producer"><TInp T={T} value={meta.producer} onChange={e=>setMeta('producer',e.target.value)}/></MF>
+            <MF T={T} label="Publisher"><TInp T={T} value={meta.publisher} onChange={e=>setMeta('publisher',e.target.value)}/></MF>
+            <MF T={T} label="Record Label"><TInp T={T} value={meta.label} onChange={e=>setMeta('label',e.target.value)}/></MF>
+            <MF T={T} label="Catalog Number"><TInp T={T} value={meta.catalog} onChange={e=>setMeta('catalog',e.target.value)} placeholder="e.g. AVS-001"/></MF>
+            <MF T={T} label="Copyright"><TInp T={T} value={meta.copyright} onChange={e=>setMeta('copyright',e.target.value)} placeholder="℗ 2025 Label Name"/></MF>
+          </div>
+        )}
+        {metaSection==='codes'&&(
+          <div style={{display:'flex',gap:20,alignItems:'flex-start',maxWidth:900}}>
+            {/* Left — form fields */}
+            <div style={{flex:'0 0 400px',minWidth:0}}>
+            <div style={h2S}>Registration Codes</div>
+            <div style={{fontSize:10,color:T.muted,marginBottom:18,padding:12,background:T.card,border:`1px solid ${T.border}`,borderRadius:T.r||0,lineHeight:1.7}}>
+              These codes are embedded into exported MP3 files and can be sent to the label design. <strong style={{color:T.text}}>ISRC</strong> identifies a specific recording. <strong style={{color:T.text}}>UPC/EAN</strong> identifies the release as a product. <strong style={{color:T.text}}>ISWC</strong> identifies the composition.
+            </div>
+            <MF T={T} label="ISRC — International Standard Recording Code" hint="Format: CC-XXX-YY-NNNNN · e.g. GB-A3Z-23-00001 · Required for streaming, SoundExchange, PPL">
+              <div style={{position:'relative'}}>
+                <TInp T={T} value={meta.isrc} onChange={e=>setMeta('isrc',e.target.value.toUpperCase())} placeholder="GB-A3Z-23-00001" style={{borderColor:meta.isrc?(isrcValid(meta.isrc)?'#3fb950':'#f85149'):T.border,paddingRight:76}}/>
+                <span style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',fontSize:8,color:meta.isrc?(isrcValid(meta.isrc)?'#3fb950':'#f85149'):T.muted}}>{meta.isrc?(isrcValid(meta.isrc)?'✓ VALID':'✗ FORMAT'):'XX-XXX-YY-NNNNN'}</span>
+              </div>
+            </MF>
+            <MF T={T} label="UPC / EAN — Universal Product Code" hint="12-digit UPC-A or 13-digit EAN-13 · Obtain via GS1 or your distributor">
+              <div style={{position:'relative'}}>
+                <TInp T={T} value={meta.upc} onChange={e=>setMeta('upc',e.target.value)} placeholder="012345678905" style={{borderColor:meta.upc?(upcValid(meta.upc)?'#3fb950':'#f85149'):T.border,paddingRight:76}}/>
+                <span style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',fontSize:8,color:meta.upc?(upcValid(meta.upc)?'#3fb950':'#f85149'):T.muted}}>{meta.upc?(upcValid(meta.upc)?'✓ VALID':'✗ 12–13 digits'):'12 or 13 digits'}</span>
+              </div>
+            </MF>
+            <MF T={T} label="ISWC — Int'l Standard Musical Work Code" hint="Identifies the composition (not the recording) · Format: T-XXXXXXXXX-C · Assigned by your PRO (ASCAP, BMI, PRS, SOCAN)">
+              <TInp T={T} value={meta.iswc} onChange={e=>setMeta('iswc',e.target.value.toUpperCase())} placeholder="T-345246800-1"/>
+            </MF>
+            <button onClick={()=>{setF('isrc',meta.isrc);setF('upc',meta.upc);setTab('label');}} style={{...mkBtn(T,true),width:'100%',padding:'10px 0',marginTop:8}}>→ Send ISRC + UPC to Label</button>
+            </div>
+            {/* Right — reference guide */}
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:8,letterSpacing:'0.2em',textTransform:'uppercase',color:T.muted,marginBottom:12}}>How to get your codes</div>
+
+              {/* ISRC card */}
+              <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:T.r||0,padding:14,marginBottom:10}}>
+                <div style={{fontSize:10,fontWeight:700,color:T.bright,marginBottom:8,letterSpacing:'0.06em'}}>ISRC — Two paths</div>
+                <div style={{fontSize:9,color:T.accent,fontWeight:700,marginBottom:3,letterSpacing:'0.1em',textTransform:'uppercase'}}>Option 1 — Register yourself</div>
+                <div style={{fontSize:9,color:T.text,lineHeight:1.7,marginBottom:6}}>
+                  Apply through <a href="https://usisrc.org" target="_blank" rel="noopener" style={{color:T.accent}}>USISRC.org</a> (US) or your country's ISRC agency. You get your own registrant code and can issue unlimited ISRCs forever. One-time fee (~$95 in the US).
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:10}}>
+                  <div style={{fontSize:8,color:'#3fb950',lineHeight:1.6}}><strong>✓ Pros</strong><br/>Full ownership of your codes<br/>Issue as many as you need<br/>No per-code cost after setup<br/>Professional credibility</div>
+                  <div style={{fontSize:8,color:'#f85149',lineHeight:1.6}}><strong>✗ Cons</strong><br/>Upfront fee<br/>Application takes a few days<br/>You manage the registry</div>
+                </div>
+                <div style={{fontSize:9,color:T.accent,fontWeight:700,marginBottom:3,letterSpacing:'0.1em',textTransform:'uppercase'}}>Option 2 — Via distributor</div>
+                <div style={{fontSize:9,color:T.text,lineHeight:1.7,marginBottom:4}}>
+                  Most distributors (DistroKid, TuneCore, CD Baby, etc.) assign ISRCs automatically when you upload a release. Free, instant, no paperwork.
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+                  <div style={{fontSize:8,color:'#3fb950',lineHeight:1.6}}><strong>✓ Pros</strong><br/>Free and automatic<br/>No setup required<br/>Handled for you</div>
+                  <div style={{fontSize:8,color:'#f85149',lineHeight:1.6}}><strong>✗ Cons</strong><br/>Codes belong to distributor<br/>May be lost if you switch<br/>Less control overall</div>
+                </div>
+              </div>
+
+              {/* UPC card */}
+              <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:T.r||0,padding:14}}>
+                <div style={{fontSize:10,fontWeight:700,color:T.bright,marginBottom:8,letterSpacing:'0.06em'}}>UPC — Two paths</div>
+                <div style={{fontSize:9,color:T.accent,fontWeight:700,marginBottom:3,letterSpacing:'0.1em',textTransform:'uppercase'}}>Option 1 — Register yourself</div>
+                <div style={{fontSize:9,color:T.text,lineHeight:1.7,marginBottom:6}}>
+                  Purchase a barcode prefix from <a href="https://www.gs1.org/services/get-barcodes" target="_blank" rel="noopener" style={{color:T.accent}}>GS1.org</a>. GS1 is the official authority; codes are globally unique and tied to your company. Annual fee based on how many products you need.
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:10}}>
+                  <div style={{fontSize:8,color:'#3fb950',lineHeight:1.6}}><strong>✓ Pros</strong><br/>Officially recognised globally<br/>Your brand attached to codes<br/>Accepted everywhere</div>
+                  <div style={{fontSize:8,color:'#f85149',lineHeight:1.6}}><strong>✗ Cons</strong><br/>Annual subscription fee<br/>Overkill for small releases</div>
+                </div>
+                <div style={{fontSize:9,color:T.accent,fontWeight:700,marginBottom:3,letterSpacing:'0.1em',textTransform:'uppercase'}}>Option 2 — Via distributor</div>
+                <div style={{fontSize:9,color:T.text,lineHeight:1.7,marginBottom:4}}>
+                  Distributors assign a UPC to each release automatically. Same trade-offs as ISRC — easy and free, but you don't own the code.
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+                  <div style={{fontSize:8,color:'#3fb950',lineHeight:1.6}}><strong>✓ Pros</strong><br/>Free, instant, no effort<br/>Works for most use cases</div>
+                  <div style={{fontSize:8,color:'#f85149',lineHeight:1.6}}><strong>✗ Cons</strong><br/>Tied to that distributor<br/>Not portable</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        {metaSection==='audio'&&(
+          <div style={{maxWidth:540}}>
+            <div style={h2S}>Audio File</div>
+            <div style={{fontSize:10,color:T.muted,marginBottom:16,padding:12,background:T.card,border:`1px solid ${T.border}`,borderRadius:T.r||0,lineHeight:1.7}}>
+              Upload your audio file. Existing ID3 tags will be read and will auto-fill fields above. The file is stored locally in IndexedDB. Use <strong style={{color:T.text}}>"Export Tagged MP3"</strong> to embed all your metadata — title, artist, BPM, ISRC, UPC, artwork, and more — into the file.
+            </div>
+            <input ref={audioRef} type="file" accept="audio/*,.mp3,.wav,.flac,.aiff,.aif,.m4a,.ogg" style={{display:'none'}} onChange={e=>e.target.files[0]&&loadAudioFile(e.target.files[0])}/>
+            <div onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();e.dataTransfer.files[0]&&loadAudioFile(e.dataTransfer.files[0]);}} onClick={()=>audioRef.current.click()}
+              style={{border:`2px dashed ${T.border}`,padding:32,textAlign:'center',cursor:'pointer',marginBottom:16,borderRadius:T.r||0,background:T.bg}}>
+              <div style={{fontSize:32,opacity:0.15,marginBottom:8}}>🎵</div>
+              <div style={{fontSize:12,color:T.text,marginBottom:4}}>{audioFile?audioFile.name:'Click or drag to upload audio'}</div>
+              <div style={{fontSize:9,color:T.muted}}>{audioFile?`${audioFile.type} · ${fmtBytes(audioFile.size)}`:'MP3, WAV, FLAC, AIFF, M4A, OGG'}</div>
+            </div>
+            {audioFile&&(
+              <div>
+                <div style={{fontSize:9,color:T.muted,textAlign:'center',marginBottom:12,padding:'8px',background:T.card,border:`1px solid ${T.border}`,borderRadius:T.r||0}}>
+                  ▶ Playing in the floating player below ↓
+                </div>
+                <button onClick={exportTaggedAudio} style={{...mkBtn(T,true),width:'100%',padding:'10px 0',marginBottom:6}}>⬇ Export Tagged MP3</button>
+                <div style={{fontSize:9,color:T.muted,textAlign:'center',lineHeight:1.6}}>Embeds: Title · Artist · Album · Year · Genre · BPM · ISRC · UPC · ISWC · Composer · Publisher · Copyright · Album Art · Comment · Mood · Producer</div>
+              </div>
+            )}
+          </div>
+        )}
+        {metaSection==='art'&&(
+          <div style={{maxWidth:460}}>
+            <div style={h2S}>Album Art</div>
+            <MF T={T} label="Output Size">
+              <TSel T={T} value={meta.albumArtSize} onChange={e=>{setMeta('albumArtSize',e.target.value);}}>
+                {ALBUM_ART_SIZES.map(s=><option key={s.val} value={s.val}>{s.label}</option>)}
+              </TSel>
+            </MF>
+            <input ref={artRef} type="file" accept="image/*" style={{display:'none'}} onChange={e=>loadAlbumArt(e.target.files[0])}/>
+            {meta.albumArt&&!meta.albumArt.startsWith('[stored]')?(
+              <div>
+                <div style={{width:'100%',aspectRatio:'1',marginBottom:10,position:'relative',overflow:'hidden',border:`1px solid ${T.border}`,borderRadius:T.r||0}}>
+                  <img src={meta.albumArt} style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}} alt="Album art"/>
+                  <div style={{position:'absolute',top:8,right:8,background:'rgba(0,0,0,0.7)',color:'#fff',fontSize:9,padding:'3px 7px',borderRadius:T.r||0}}>{meta.albumArtSize}×{meta.albumArtSize}</div>
+                </div>
+                <div style={{display:'flex',gap:6,marginBottom:10}}>
+                  <button onClick={()=>artRef.current.click()} style={{...mkBtn(T),flex:1,fontSize:9}}>↺ Replace</button>
+                  <button onClick={()=>{const a=document.createElement('a');a.href=meta.albumArt;a.download=`${(meta.title||'artwork').replace(/\s+/g,'-')}-${meta.albumArtSize}px.jpg`;a.click();}} style={{...mkBtn(T,true),flex:1,fontSize:9}}>⬇ Export JPG</button>
+                  <button onClick={()=>setMeta('albumArt',null)} style={{...mkBtn(T),fontSize:9,padding:'8px 10px',color:'#f87171'}}>✕</button>
+                </div>
+                <div style={{fontSize:9,color:T.muted,padding:10,background:T.card,border:`1px solid ${T.border}`,borderRadius:T.r||0,lineHeight:1.8}}>
+                  <div><strong style={{color:T.text}}>Streaming (Apple, Spotify, Tidal)</strong> — 3000×3000 px minimum</div>
+                  <div><strong style={{color:T.text}}>Bandcamp</strong> — 1400×1400 px minimum</div>
+                  <div><strong style={{color:T.text}}>Physical CD</strong> — 300 DPI at print size (~1200×1200 for 4×4")</div>
+                </div>
+              </div>
+            ):(
+              <div onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();loadAlbumArt(e.dataTransfer.files[0]);}} onClick={()=>artRef.current.click()}
+                style={{width:'100%',aspectRatio:'1',border:`2px dashed ${T.border}`,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',cursor:'pointer',gap:10,background:T.bg,borderRadius:T.r||0}}>
+                <div style={{fontSize:40,opacity:0.15}}>🖼</div>
+                <div style={{fontSize:11,color:T.muted,textAlign:'center',lineHeight:1.6}}>Click or drag to upload<br/>Auto-cropped to square at {meta.albumArtSize}×{meta.albumArtSize}px</div>
+                <div style={{fontSize:8,color:T.muted}}>JPG · PNG · WEBP · TIFF</div>
+              </div>
+            )}
+          </div>
+        )}
+        {metaSection==='extra'&&(
+          <div style={{maxWidth:540}}>
+            <div style={h2S}>Extra Tags</div>
+            <MF T={T} label="Mood"><TInp T={T} value={meta.mood} onChange={e=>setMeta('mood',e.target.value)} placeholder="e.g. Dark, Hypnotic, Euphoric"/></MF>
+            <MF T={T} label="Language"><TInp T={T} value={meta.language} onChange={e=>setMeta('language',e.target.value)} placeholder="e.g. English / eng"/></MF>
+            <MF T={T} label="Grouping / Work"><TInp T={T} value={meta.grouping} onChange={e=>setMeta('grouping',e.target.value)} placeholder="Movement or work grouping"/></MF>
+            <MF T={T} label="Encoder / Tool"><TInp T={T} value={meta.encoder} onChange={e=>setMeta('encoder',e.target.value)} placeholder="e.g. Ableton Live 12"/></MF>
+            <MF T={T} label="Comment"><TTxt T={T} value={meta.comment} onChange={e=>setMeta('comment',e.target.value)} style={{minHeight:80}}/></MF>
+          </div>
+        )}
+        {metaSection==='summary'&&(
+          <div style={{maxWidth:560}}>
+            <div style={h2S}>Tag Summary</div>
+            <div style={{fontFamily:'monospace',fontSize:10,lineHeight:2.2,background:T.card,padding:16,border:`1px solid ${T.border}`,borderRadius:T.r||0,marginBottom:14}}>
+              {[['TITLE',meta.title],['ARTIST',meta.artist],['ALBUM ARTIST',meta.albumArtist],['ALBUM',meta.album],['YEAR',meta.year],['TRACK',[meta.trackNum,meta.trackTotal].filter(Boolean).join('/')],['DISC',[meta.discNum,meta.discTotal].filter(Boolean).join('/')],['GENRE',meta.genre],['BPM',meta.bpm],['KEY',meta.key],['ISRC',meta.isrc],['UPC',meta.upc],['ISWC',meta.iswc],['COMPOSER',meta.composer],['LYRICIST',meta.lyricist],['PRODUCER',meta.producer],['PUBLISHER',meta.publisher],['LABEL',meta.label],['CATALOG',meta.catalog],['COPYRIGHT',meta.copyright],['LANGUAGE',meta.language],['MOOD',meta.mood],['COMMENT',meta.comment]].filter(([,v])=>v).map(([k,v])=>(
+                <div key={k} style={{display:'flex',gap:12,borderBottom:`1px solid ${T.border}44`,paddingBottom:1}}>
+                  <span style={{color:T.muted,minWidth:120,flexShrink:0}}>{k}</span>
+                  <span style={{color:T.bright,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{v}</span>
+                </div>
+              ))}
+              {meta.explicit&&<div style={{display:'flex',gap:12}}><span style={{color:T.muted,minWidth:120}}>EXPLICIT</span><span style={{color:T.bright}}>Yes</span></div>}
+              {meta.albumArt&&<div style={{display:'flex',gap:12}}><span style={{color:T.muted,minWidth:120}}>ARTWORK</span><span style={{color:'#3fb950'}}>✓ {meta.albumArtSize}×{meta.albumArtSize}px embedded</span></div>}
+              {audioFile&&<div style={{display:'flex',gap:12}}><span style={{color:T.muted,minWidth:120}}>AUDIO FILE</span><span style={{color:'#3fb950'}}>✓ {audioFile.name}</span></div>}
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              <button onClick={sendMetaToLabel} style={{...mkBtn(T,true),flex:1,padding:'9px 0',fontSize:9}}>→ Send All to Label</button>
+              <button onClick={exportTaggedAudio} style={{...mkBtn(T),flex:1,padding:'9px 0',fontSize:9}}>⬇ Export Tagged MP3</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+  // ━━━━━━━━ CLASSIFY TAB ━━━━━━━━
+  const classifyTab=(
+    <div style={{maxWidth:820,margin:'0 auto',padding:'24px 16px'}}>
+      <div style={{padding:'14px 18px',marginBottom:16,background:T.card,border:`1px solid ${T.border}`,borderRadius:T.r||0,display:'flex',gap:14,alignItems:'flex-start'}}>
+        <div style={{fontSize:22,flexShrink:0,opacity:0.5,lineHeight:1}}>◈</div>
+        <div>
+          <div style={{fontSize:10,fontWeight:700,color:T.bright,letterSpacing:'0.12em',textTransform:'uppercase',marginBottom:6}}>Personal Classification System</div>
+          <div style={{fontSize:10,color:T.text,lineHeight:1.75,maxWidth:640}}>
+            This is a <strong style={{color:T.bright}}>Track Lab–exclusive</strong> system for your own personal organisation — it is not an industry standard, not recognised by streaming platforms, and carries no formal meaning outside of this app. Think of it as a private tagging shorthand: a four-character code that lets you quickly sort, search, and group your tracks by genre, mood, tempo, and texture in a way that makes sense to you.
+          </div>
+          <div style={{fontSize:9,color:T.muted,marginTop:8,lineHeight:1.65}}>
+            Pick descriptors for each position, or hit <strong style={{color:T.muted}}>🎲 Random</strong> to generate one. Save codes to the Catalog to reuse them across tracks. Attach a code to the active archive entry with <strong style={{color:T.muted}}>⬆ Save to Entry</strong>. Use <strong style={{color:T.muted}}>📥 Export Guide</strong> to download the full reference sheet.
+          </div>
+        </div>
+      </div>
+      <div style={{...mkCard(T)}}>
+        <div style={h2S}>Build Classification Code</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:14}}>
+          {Object.entries(CLS).map(([key,data])=>(
+            <div key={key}>
+              <label style={mkLBL(T)}>{data.name}</label>
+              <TSel T={T} value={sel[key]} onChange={e=>setSel({...sel,[key]:e.target.value})}>
+                <option value="">— Random —</option>
+                {Object.entries(data.options).map(([n,d])=><option key={n} value={n}>{n} — {d}</option>)}
+              </TSel>
+            </div>
+          ))}
+        </div>
+        <div style={{display:'flex',gap:8}}>
+          <button onClick={generateCode} style={{...mkBtn(T,true),flex:1,padding:'10px 0'}}>Generate Code</button>
+          <button onClick={randomGenerate} style={{...mkBtn(T),padding:'10px 14px'}}>🎲 Random</button>
+          <button onClick={exportGuide} style={{...mkBtn(T),padding:'10px 12px',fontSize:9}}>📥 Export Guide</button>
+        </div>
+      </div>
+      {genCode&&(
+        <div style={{...mkCard(T),textAlign:'center'}}>
+          <div style={{fontSize:52,fontFamily:'monospace',fontWeight:700,color:T.accent,marginBottom:6,letterSpacing:'0.1em'}}>{genCode}</div>
+          <div style={{fontSize:11,color:T.muted,marginBottom:16,lineHeight:1.5}}>{getCodeDesc(genCode)}</div>
+          <div style={{display:'flex',gap:8,justifyContent:'center',flexWrap:'wrap'}}>
+            <button onClick={()=>{navigator.clipboard.writeText(genCode);setCopied(true);setTimeout(()=>setCopied(false),2000);}} style={mkBtn(T)}>{copied?'✓ Copied':'📋 Copy'}</button>
+            <button onClick={saveCode} style={mkBtn(T)}>💾 Save to Catalog</button>
+            <button onClick={()=>sendToLabel(genCode)} style={mkBtn(T,true)}>🏷 Make Label →</button>
+            {activeEid&&<button onClick={()=>{updateEntry(activeEid,{classCode:genCode});setF('classCode',genCode);setF('classDesc',getCodeDesc(genCode));}} style={mkBtn(T)}>⬆ Save to Entry</button>}
+          </div>
+        </div>
+      )}
+      <div style={{...mkCard(T)}}>
+        <div style={h2S}>Decode a Code</div>
+        <div style={{display:'flex',gap:8,marginBottom:12}}>
+          <TInp T={T} value={decInput} onChange={e=>setDecInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&decodeCode()} placeholder="e.g. 142.7 or S3K.F" style={{flex:1,fontSize:16,fontFamily:'monospace',letterSpacing:'0.15em'}}/>
+          <button onClick={decodeCode} style={{...mkBtn(T,true),padding:'8px 18px'}}>Decode</button>
+        </div>
+        {decResult&&(
+          <div style={{padding:14,background:decResult.valid?rgba(T.accent,0.06):rgba('#f85149',0.08),border:`1px solid ${decResult.valid?rgba(T.accent,0.3):'#5a1e1e'}`,borderRadius:T.r||0}}>
+            {decResult.valid?(
+              <div>
+                <div style={{fontSize:36,fontFamily:'monospace',fontWeight:700,color:T.accent,textAlign:'center',marginBottom:6,letterSpacing:'0.1em'}}>{decResult.code}</div>
+                <div style={{fontSize:10,color:T.muted,textAlign:'center',marginBottom:14,paddingBottom:12,borderBottom:`1px solid ${T.border}`}}>{decResult.full}</div>
+                <div style={{display:'flex',flexDirection:'column',gap:5,marginBottom:14}}>
+                  {decResult.bd.map(item=>(
+                    <div key={item.p} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'8px 10px',background:T.bg,borderRadius:T.r||0,border:`1px solid ${T.border}`}}>
+                      <div style={{width:28,height:28,borderRadius:'50%',background:T.accent,color:T.bg,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'monospace',fontWeight:700,flexShrink:0,fontSize:13}}>{item.v}</div>
+                      <div><div style={{fontSize:8,color:T.muted,letterSpacing:'0.1em',marginBottom:2}}>{item.cat}</div><div style={{fontSize:12,color:T.bright}}>{item.m}</div></div>
+                    </div>
+                  ))}
+                </div>
+                <button onClick={()=>sendToLabel(decResult.code)} style={{...mkBtn(T,true),width:'100%',padding:'10px 0'}}>🏷 Send to Label →</button>
+              </div>
+            ):(
+              <div style={{color:'#f85149',textAlign:'center',fontSize:12}}>{decResult.error}</div>
+            )}
+          </div>
+        )}
+      </div>
+      <div style={mkCard(T)}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer'}} onClick={()=>setShowGuide(!showGuide)}>
+          <span style={{fontSize:10,color:T.text}}>Classification Reference Guide</span>
+          <span style={{color:T.accent,fontSize:10}}>{showGuide?'▴ Hide':'▾ Show'}</span>
+        </div>
+        {showGuide&&(
+          <div style={{marginTop:14,display:'flex',flexDirection:'column',gap:10}}>
+            {Object.entries(CLS).map(([k,d])=>(
+              <div key={k} style={{background:T.bg,padding:12,border:`1px solid ${T.border}`,borderRadius:T.r||0}}>
+                <div style={{fontSize:10,fontWeight:700,color:T.accent,marginBottom:8}}>Position {k.replace('digit','')}: {d.name}</div>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:3}}>
+                  {Object.entries(d.options).map(([n,dd])=>(
+                    <div key={n} style={{fontSize:9,color:T.text,display:'flex',gap:6}}>
+                      <span style={{fontFamily:'monospace',fontWeight:700,color:T.accent,minWidth:14}}>{n}</span>
+                      <span style={{color:T.muted}}>{dd}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // ━━━━━━━━ LABEL TAB ━━━━━━━━
+  const [panelTab,setPanelTab]=useState('content');
+  const labelTab=(
+    <div style={{display:'flex',height:'calc(100vh - 44px)',overflow:'hidden'}}>
+      {/* PANEL */}
+      <div style={{width:288,flexShrink:0,background:T.panel,borderRight:`1px solid ${T.border}`,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+        <div style={{display:'flex',borderBottom:`1px solid ${T.border}`,flexShrink:0}}>
+          {[['content','Content'],['style','Style'],['presets','Presets']].map(([id,lbl])=>(
+            <button key={id} onClick={()=>setPanelTab(id)} style={{flex:1,padding:'9px 0',background:'transparent',color:panelTab===id?T.accent:T.muted,border:'none',borderBottom:panelTab===id?`2px solid ${T.accent}`:'2px solid transparent',fontFamily:'inherit',fontSize:8,letterSpacing:'0.12em',textTransform:'uppercase',cursor:'pointer'}}>
+              {lbl}
+            </button>
+          ))}
+        </div>
+        <div style={{flex:1,overflowY:'auto',padding:'8px 12px'}}>
+          {panelTab==='content'&&(
+            <>
+              <Accordion T={T} title="Identity" defaultOpen>
+                <F T={T} label="Artist / Project"><TInp T={T} value={fields.artist} onChange={e=>setF('artist',e.target.value)}/></F>
+                <Row2>
+                  <F T={T} label="Catalog #"><TInp T={T} value={fields.catalog} onChange={e=>setF('catalog',e.target.value)}/></F>
+                  <F T={T} label="Track #"><TInp T={T} value={fields.trackNum} onChange={e=>setF('trackNum',e.target.value)}/></F>
+                </Row2>
+              </Accordion>
+              <Accordion T={T} title="Track Title" defaultOpen>
+                <TInp T={T} value={fields.title} onChange={e=>setF('title',e.target.value)}/>
+              </Accordion>
+              <Accordion T={T} title="Meta Row Fields">
+                <MetaFieldsPanel T={T} settings={settings} setS={setS}/>
+              </Accordion>
+              <Accordion T={T} title="Classification Code">
+                <Row2>
+                  <F T={T} label="Code (XXX.X)"><TInp T={T} value={fields.classCode} onChange={e=>{setF('classCode',e.target.value.toUpperCase());setF('classDesc',getCodeDesc(e.target.value.toUpperCase()));}}/></F>
+                  <F T={T} label=" "><button onClick={()=>setTab('classify')} style={{...mkBtn(T),width:'100%',marginTop:11,fontSize:9}}>← Classify</button></F>
+                </Row2>
+                {fields.classCode&&<div style={{fontSize:9,color:T.muted,marginBottom:6,lineHeight:1.4}}>{getCodeDesc(fields.classCode)||'Enter a valid code'}</div>}
+                <Tog T={T} label="Show code on label" value={settings.showClass} onChange={v=>setS({showClass:v})}/>
+              </Accordion>
+              <Accordion T={T} title="ISRC / UPC">
+                <Row2>
+                  <F T={T} label="ISRC"><TInp T={T} value={fields.isrc} onChange={e=>setF('isrc',e.target.value)}/></F>
+                  <F T={T} label="UPC / EAN"><TInp T={T} value={fields.upc} onChange={e=>setF('upc',e.target.value)}/></F>
+                </Row2>
+                <Tog T={T} label="Show codes on label" value={settings.showCodes} onChange={v=>setS({showCodes:v})}/>
+                <Tog T={T} label="Codes in footer strip" value={settings.codesInFooter} onChange={v=>setS({codesInFooter:v})}/>
+              </Accordion>
+              <Accordion T={T} title="Notes / Description">
+                <TTxt T={T} value={fields.description} onChange={e=>setF('description',e.target.value)} style={{minHeight:72}}/>
+                <Tog T={T} label="Show notes" value={settings.showDesc} onChange={v=>setS({showDesc:v})}/>
+              </Accordion>
+              <Accordion T={T} title="Tags">
+                <div style={{fontSize:9,color:T.muted,marginBottom:4}}>Comma-separated</div>
+                <TInp T={T} value={fields.tags} onChange={e=>setF('tags',e.target.value)} placeholder="dark, industrial, hypnotic"/>
+                <Tog T={T} label="Show tags" value={settings.showTags} onChange={v=>setS({showTags:v})}/>
+              </Accordion>
+              <Accordion T={T} title="QR Code / URL">
+                <F T={T} label="URL"><TInp T={T} value={fields.url} onChange={e=>setF('url',e.target.value)} placeholder="https://soundcloud.com/…"/></F>
+                <F T={T} label="QR Caption"><TInp T={T} value={settings.qrCaption} onChange={e=>setS({qrCaption:e.target.value})}/></F>
+                <Tog T={T} label="Show QR code" value={settings.showQR} onChange={v=>setS({showQR:v})}/>
+                <Tog T={T} label="Float QR (free position)" value={settings.qrFloat} onChange={v=>setS({qrFloat:v})}/>
+                {settings.qrFloat&&<Row2><F T={T} label="X px"><TInp T={T} type="number" value={settings.qrFloatX} onChange={e=>setS({qrFloatX:+e.target.value})}/></F><F T={T} label="Y px"><TInp T={T} type="number" value={settings.qrFloatY} onChange={e=>setS({qrFloatY:+e.target.value})}/></F></Row2>}
+              </Accordion>
+              <Accordion T={T} title="Dithered Image">
+                <DitherPanel T={T} settings={settings} setS={setS}/>
+              </Accordion>
+              <Accordion T={T} title="Free Text Blocks">
+                <TextBlocksPanel T={T} settings={settings} setS={setS}/>
+              </Accordion>
+              <div style={{marginTop:10}}>
+                <button onClick={sendMetaToLabel} style={{...mkBtn(T,true),width:'100%',padding:'8px 0',fontSize:9}}>← Pull from Tags</button>
+              </div>
+            </>
+          )}
+          {panelTab==='style'&&(
+            <>
+              <Accordion T={T} title="Size & Dimensions" defaultOpen>
+                <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
+                  {SIZE_PRESETS.map(p=><button key={p.name} onClick={()=>setS({labelW:p.w,labelH:p.h})} style={{...mkBtn(T,(settings.labelW===p.w&&settings.labelH===p.h)),padding:'4px 7px',fontSize:8}}>{p.name}</button>)}
+                </div>
+                <Row2>
+                  <F T={T} label="W px"><TInp T={T} type="number" min={100} max={1200} value={settings.labelW} onChange={e=>setS({labelW:+e.target.value})}/></F>
+                  <F T={T} label="H px"><TInp T={T} type="number" min={100} max={1200} value={settings.labelH} onChange={e=>setS({labelH:+e.target.value})}/></F>
+                </Row2>
+                <F T={T} label={`Outer border: ${settings.outerBorder}px`}><input type="range" min={0} max={10} value={settings.outerBorder} onChange={e=>setS({outerBorder:+e.target.value})} style={{width:'100%'}}/></F>
+              </Accordion>
+              <Accordion T={T} title="Color Scheme" defaultOpen>
+                <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
+                  {Object.entries(BASE_SCHEMES).map(([key,sc])=>(
+                    <button key={key} onClick={()=>setS({scheme:key})} style={{...mkBtn(T,settings.scheme===key),padding:'4px 8px',fontSize:8}}>{sc.n}</button>
+                  ))}
+                </div>
+                <Tog T={T} label="Background gradient" value={settings.useGradient} onChange={v=>setS({useGradient:v})}/>
+                {settings.scheme==='custom'&&(
+                  <div style={{marginTop:8}}>
+                    {[['bg','Background'],['fg','Foreground'],['bannerBg','Banner BG'],['bannerFg','Banner FG'],['metaBg','Meta Bar BG'],['metaFg','Meta Bar FG'],['accent','Accent'],['sub','Subtext'],['border','Borders'],['strip','Footer Strip'],['codeBg','Code BG'],['codeFg','Code Text']].map(([k,lbl])=>(
+                      <ColorRow key={k} T={T} label={lbl} hex={settings.customColors[k]} onHex={hex=>setS(s=>({...s,scheme:'custom',customColors:{...s.customColors,[k]:hex}}))}/>
+                    ))}
+                    <ColorRow T={T} label="Gradient Color 2" hex={settings.gradColor2} onHex={hex=>setS({gradColor2:hex})}/>
+                  </div>
+                )}
+              </Accordion>
+              <Accordion T={T} title="Font">
+                <F T={T} label="Font Family"><TSel T={T} value={settings.font} onChange={e=>setS({font:e.target.value})}>{Object.entries(FONTS).map(([k,f])=><option key={k} value={k}>{f.name}</option>)}</TSel></F>
+              </Accordion>
+              <Accordion T={T} title="Typography">
+                <div style={{fontSize:9,color:T.accent,marginBottom:6,letterSpacing:'0.1em'}}>ARTIST</div>
+                <Row2><F T={T} label="Size"><TInp T={T} type="number" min={8} max={40} value={settings.artistSize} onChange={e=>setS({artistSize:+e.target.value})}/></F><div style={{display:'flex',gap:6,alignItems:'flex-end',paddingBottom:7}}><Tog T={T} label="Bold" value={settings.artistBold} onChange={v=>setS({artistBold:v})}/><Tog T={T} label="Italic" value={settings.artistItalic} onChange={v=>setS({artistItalic:v})}/></div></Row2>
+                <div style={{fontSize:9,color:T.accent,marginBottom:6,letterSpacing:'0.1em'}}>TITLE</div>
+                <Row2><F T={T} label="Size"><TInp T={T} type="number" min={10} max={72} value={settings.titleSize} onChange={e=>setS({titleSize:+e.target.value})}/></F><div style={{display:'flex',gap:6,alignItems:'flex-end',paddingBottom:7}}><Tog T={T} label="Bold" value={settings.titleBold} onChange={v=>setS({titleBold:v})}/><Tog T={T} label="Italic" value={settings.titleItalic} onChange={v=>setS({titleItalic:v})}/></div></Row2>
+                <F T={T} label="Title Align"><TSel T={T} value={settings.titleAlign} onChange={e=>setS({titleAlign:e.target.value})}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></TSel></F>
+                <div style={{fontSize:9,color:T.accent,marginBottom:6,letterSpacing:'0.1em'}}>BODY TEXT</div>
+                <Row2><F T={T} label="Size"><TInp T={T} type="number" min={6} max={20} value={settings.bodySize} onChange={e=>setS({bodySize:+e.target.value})}/></F><F T={T} label="Meta Size"><TInp T={T} type="number" min={6} max={20} value={settings.metaSize} onChange={e=>setS({metaSize:+e.target.value})}/></F></Row2>
+              </Accordion>
+              <Accordion T={T} title="Sections & Borders">
+                {[['showBanner','Artist Banner'],['showMeta','Meta Row'],['showClass','Classification'],['showDesc','Notes'],['showTags','Tags'],['showCodes','ISRC/UPC Bar'],['showQR','QR Code'],['showFooter','Footer Strip']].map(([k,lbl])=>(
+                  <Tog key={k} T={T} label={lbl} value={settings[k]} onChange={v=>setS({[k]:v})}/>
+                ))}
+                <div style={{borderTop:`1px solid ${T.border}`,marginTop:8,paddingTop:8}}>
+                  <div style={{fontSize:8,color:T.muted,marginBottom:6,letterSpacing:'0.12em',textTransform:'uppercase'}}>Section Dividers</div>
+                  {Object.keys(settings.borders||{}).map(k=>(
+                    <Tog key={k} T={T} label={k.replace(/([A-Z])/g,' $1').replace(/^./,s=>s.toUpperCase())} value={settings.borders[k]} onChange={v=>setS(s=>({...s,borders:{...s.borders,[k]:v}}))}/>
+                  ))}
+                </div>
+              </Accordion>
+            </>
+          )}
+          {panelTab==='presets'&&(
+            <PresetPanel T={T} settings={settings} presets={presets} lastId={lastPid}
+              onSave={name=>{const p={id:mkUid(),name,settings:{...settings}};setPresets([...presets,p]);}}
+              onLoad={p=>{setS(()=>({...DEFAULT_SETTINGS,...p.settings}));setLastPid(p.id);saveLS('tl_last_preset',p.id);}}
+              onDelete={id=>setPresets(presets.filter(p=>p.id!==id))}/>
+          )}
+        </div>
+        <div style={{padding:'8px 12px',paddingBottom:audioObjectUrl&&!appTheme.playerAutoHide?72:12,borderTop:`1px solid ${T.border}`,flexShrink:0,display:'flex',flexDirection:'column',gap:5}}>
+          <div style={{display:'flex',gap:6}}>
+            <TSel T={T} value={settings.exportFormat} onChange={e=>setS({exportFormat:e.target.value})} style={{flex:1}}>
+              <option value="png">PNG</option><option value="jpeg">JPG</option>
+            </TSel>
+            <TSel T={T} value={settings.exportScale} onChange={e=>setS({exportScale:+e.target.value})} style={{width:70}}>
+              <option value={1}>1×</option><option value={2}>2×</option><option value={3}>3×</option><option value={4}>4×</option>
+            </TSel>
+          </div>
+          <button onClick={exportLabel} disabled={exporting} style={{...mkBtn(T,true),width:'100%',padding:'10px 0'}}>
+            {exporting?'Rendering…':'⬇ Export Label'}
+          </button>
+          {exportMsg&&<div style={{fontSize:9,color:T.muted,textAlign:'center'}}>{exportMsg}</div>}
+        </div>
+      </div>
+      {/* PREVIEW */}
+      <div style={{flex:1,overflowY:'auto',display:'flex',alignItems:'flex-start',justifyContent:'center',padding:24,background:`${T.bg}cc`}}>
+        <div style={{transform:`scale(${prevScale})`,transformOrigin:'top center',pointerEvents:'none'}}>
+          <TrackLabel fields={fields} settings={settings}/>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ━━━━━━━━ CODES CATALOG TAB ━━━━━━━━
+  const catalogTab=(
+    <div style={{maxWidth:680,margin:'0 auto',padding:'24px 16px'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+        <div style={h2S}>Saved Codes</div>
+        <div style={{display:'flex',gap:8}}>
+          <button onClick={()=>{const txt=savedCodes.map(c=>`${c.code}  ${c.desc||getCodeDesc(c.code)}`).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'text/plain'}));a.download='saved-codes.txt';a.click();}} style={{...mkBtn(T),padding:'6px 12px',fontSize:9}}>📥 Export TXT</button>
+          {savedCodes.length>0&&<button onClick={()=>{if(window.confirm('Clear all saved codes?'))setSavedCodes([]);}} style={{...mkBtn(T),padding:'6px 12px',fontSize:9,color:'#f87171'}}>Clear All</button>}
+        </div>
+      </div>
+      {savedCodes.length===0?(
+        <div style={{...mkCard(T),textAlign:'center',padding:40}}>
+          <div style={{fontSize:32,opacity:0.15,marginBottom:12}}>◈</div>
+          <div style={{...mS}}>No codes saved yet. Generate codes in the Classify tab and save them here.</div>
+        </div>
+      ):(
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+          {savedCodes.map((c,i)=>(
+            <div key={i} style={{...mkCard(T),marginBottom:0,display:'flex',flexDirection:'column',gap:6}}>
+              <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between'}}>
+                <div style={{fontFamily:'monospace',fontSize:22,fontWeight:700,color:T.accent,letterSpacing:'0.1em'}}>{c.code}</div>
+                <button onClick={()=>setSavedCodes(savedCodes.filter((_,j)=>j!==i))} style={{...btnMini,color:'#f87171',fontSize:13}}>✕</button>
+              </div>
+              <div style={{fontSize:9,color:T.muted,lineHeight:1.5,flex:1}}>{c.desc||getCodeDesc(c.code)}</div>
+              {c.saved&&<div style={{fontSize:7,color:T.muted,letterSpacing:'0.06em'}}>{c.saved}</div>}
+              <div style={{display:'flex',gap:5}}>
+                <button onClick={()=>{navigator.clipboard.writeText(c.code);}} style={{...mkBtn(T),flex:1,padding:'5px 0',fontSize:8}}>📋 Copy</button>
+                <button onClick={()=>sendToLabel(c.code)} style={{...mkBtn(T,true),flex:1,padding:'5px 0',fontSize:8}}>🏷 Label</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+  // ━━━━━━━━ RENDER ━━━━━━━━
+  return(
+    <div style={{height:'100vh',display:'flex',flexDirection:'column',overflow:'hidden',background:T.bg,color:T.text}}>
+      {tabBar}
+      <div style={{flex:1,overflow:tab==='label'||tab==='archive'||tab==='metadata'||tab==='viz'?'hidden':'auto',background:T.bg,paddingBottom:audioObjectUrl&&!appTheme.playerAutoHide?64:0}}>
+        {tab==='info'&&infoTab}
+        {tab==='archive'&&archiveTab}
+        {tab==='metadata'&&metadataTab}
+        {tab==='classify'&&classifyTab}
+        {tab==='label'&&labelTab}
+        {tab==='catalog'&&catalogTab}
+        <div style={{display:tab==='viz'?'flex':'none',height:'100%',flexDirection:'column'}}>
+          <PlayerView T={T} audioElRef={audioElRef} audioObjectUrl={audioObjectUrl} activeEntry={activeEntry} activeEid={activeEid} meta={meta} audioFile={audioFile} entries={entries} profiles={profiles} activePid={activePid} setActivePid={setActivePid} loadEntry={loadEntry} setAudioObjectUrl={setAudioObjectUrl} setAudioFile={setAudioFile} playerVisible={!!audioObjectUrl&&!appTheme.playerAutoHide}/>
+        </div>
+      </div>
+      <FloatingPlayer T={T} audioObjectUrl={audioObjectUrl} audioFile={audioFile} activeEntry={activeEntry} meta={meta} autoHide={!!appTheme.playerAutoHide} audioElRef={audioElRef}/>
+    </div>
+  );
+}
+
+ReactDOM.render(<App/>,document.getElementById('root'));
+</script>
+</body>
+</html>
